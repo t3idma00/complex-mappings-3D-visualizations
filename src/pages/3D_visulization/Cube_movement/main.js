@@ -1,8 +1,9 @@
+// Variables for physics
 let velocityY = 0;
 const gravity = -0.001;
 const backgroundCubes = [];
 
-// Enable pointer lock on click
+// Pointer lock for mouse control
 document.body.addEventListener("click", () => {
   document.body.requestPointerLock();
 });
@@ -13,11 +14,12 @@ document.addEventListener("pointerlockchange", () => {
   if (instruction) instruction.style.display = isLocked ? "none" : "block";
 });
 
-// Scene and camera setup
+// Scene and Camera
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.z = 5;
 
+// Renderer
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0xACACFF);
@@ -29,6 +31,9 @@ document.body.appendChild(renderer.domElement);
 const textureLoader = new THREE.TextureLoader();
 const boxTexture = textureLoader.load("brickwall.jpg");
 const woodTexture = textureLoader.load("wood.jpg");
+const grassTexture = textureLoader.load("grass.jpg");
+grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
+grassTexture.repeat.set(50, 50);
 
 // Lighting
 const light = new THREE.DirectionalLight(0xffffff, 1);
@@ -58,7 +63,7 @@ scene.add(cube);
 
 // Ground plane
 const groundGeo = new THREE.PlaneGeometry(100, 100);
-const groundMat = new THREE.MeshStandardMaterial({ color: 0x809c13 });
+const groundMat = new THREE.MeshStandardMaterial({ map: grassTexture });
 const ground = new THREE.Mesh(groundGeo, groundMat);
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = 0;
@@ -77,12 +82,25 @@ for (let i = 0; i < 20; i++) {
   scene.add(box);
 }
 
-// Track keys
+// Slope
+const slope = new THREE.Mesh(
+  new THREE.PlaneGeometry(10, 10),
+  new THREE.MeshStandardMaterial({ color: 0x999999 })
+);
+slope.rotation.set(-Math.PI / 6, 0, 0); // 30 degree slope
+slope.position.set(0, 0, -10);
+slope.receiveShadow = true;
+scene.add(slope);
+
+// Combine all static obstacles
+const allObstacles = [...backgroundCubes, slope];
+
+// Keyboard control
 let keysPressed = {};
 document.addEventListener("keydown", e => keysPressed[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keysPressed[e.key.toLowerCase()] = false);
 
-// Track mouse movement
+// Mouse rotation
 let rotationY = 0;
 document.addEventListener("mousemove", (event) => {
   if (document.pointerLockElement === document.body) {
@@ -91,75 +109,50 @@ document.addEventListener("mousemove", (event) => {
   }
 });
 
-// Check collision
+// Collision detection using bounding boxes
 function isColliding(a, b) {
   const boxA = new THREE.Box3().setFromObject(a);
   const boxB = new THREE.Box3().setFromObject(b);
   return boxA.intersectsBox(boxB);
 }
 
-// Cube movement
+// Update cube position
 function CubeMovement() {
   const speed = 0.1;
   const forward = new THREE.Vector3(Math.sin(rotationY), 0, Math.cos(rotationY));
   const right = new THREE.Vector3(Math.cos(rotationY), 0, -Math.sin(rotationY));
 
-  if (keysPressed["w"]) {
-    const next = cube.position.clone().add(forward.clone().multiplyScalar(speed));
-    cube.position.copy(next);
-    for (let obs of backgroundCubes) {
+  function attemptMove(directionVec, backward = false) {
+    const step = directionVec.clone().multiplyScalar(backward ? -speed : speed);
+    cube.position.add(step);
+    for (let obs of allObstacles) {
       if (isColliding(cube, obs)) {
-        cube.position.sub(forward.clone().multiplyScalar(speed));
+        cube.position.sub(step);
         break;
       }
     }
   }
 
-  if (keysPressed["s"]) {
-    const next = cube.position.clone().add(forward.clone().multiplyScalar(-speed));
-    cube.position.copy(next);
-    for (let obs of backgroundCubes) {
-      if (isColliding(cube, obs)) {
-        cube.position.add(forward.clone().multiplyScalar(speed));
-        break;
-      }
-    }
-  }
-
-  if (keysPressed["a"]) {
-    const next = cube.position.clone().add(right.clone().multiplyScalar(speed));
-    cube.position.copy(next);
-    for (let obs of backgroundCubes) {
-      if (isColliding(cube, obs)) {
-        cube.position.sub(right.clone().multiplyScalar(speed));
-        break;
-      }
-    }
-  }
-
-  if (keysPressed["d"]) {
-    const next = cube.position.clone().add(right.clone().multiplyScalar(-speed));
-    cube.position.copy(next);
-    for (let obs of backgroundCubes) {
-      if (isColliding(cube, obs)) {
-        cube.position.add(right.clone().multiplyScalar(speed));
-        break;
-      }
-    }
-  }
+  if (keysPressed["w"]) attemptMove(forward);
+  if (keysPressed["s"]) attemptMove(forward, true);
+  if (keysPressed["a"]) attemptMove(right);
+  if (keysPressed["d"]) attemptMove(right, true);
 
   if (keysPressed["q"]) velocityY += 0.002;
   if (keysPressed["e"]) velocityY -= 0.01;
 
+  // Apply gravity
   velocityY += gravity;
   cube.position.y += velocityY;
 
+  // Floor collision
   if (cube.position.y < cubeHalfHeight) {
     cube.position.y = cubeHalfHeight;
     velocityY = 0;
   }
 
-  for (let obs of backgroundCubes) {
+  // Landing check on other objects
+  for (let obs of allObstacles) {
     if (isColliding(cube, obs)) {
       const obsBox = new THREE.Box3().setFromObject(obs);
       const cubeBox = new THREE.Box3().setFromObject(cube);
@@ -174,23 +167,23 @@ function CubeMovement() {
   }
 }
 
-// Animate
+// Animation loop
 function animate() {
   requestAnimationFrame(animate);
   CubeMovement();
-
   cube.rotation.y = rotationY;
 
+  // Camera follows cube
   const distance = 5;
   const height = 3;
   const offsetX = Math.sin(rotationY) * distance;
   const offsetZ = Math.cos(rotationY) * distance;
-
   camera.position.x = cube.position.x - offsetX;
   camera.position.z = cube.position.z - offsetZ;
   camera.position.y = cube.position.y + height;
   camera.lookAt(cube.position);
 
+  // Debug display
   const debugPanel = document.getElementById("debug");
   if (debugPanel) {
     debugPanel.innerHTML = `
