@@ -24,7 +24,7 @@ const ball = new THREE.Mesh(ballGeometry, ballMaterial);
 scene.add(ball);
 
 //Create a ground plane
-const groundGeometry = new THREE.PlaneGeometry(0.001, 0.001);
+const groundGeometry = new THREE.PlaneGeometry(10,10);
 const groundMaterial = new THREE.MeshPhongMaterial({
     color: 0xaaaaaa,
     side: THREE.DoubleSide
@@ -78,10 +78,16 @@ window.addEventListener('resize', () => {
 });
 
 //Reset animation on click
-window.addEventListener('click', () => {
+window.addEventListener('keydown', (event) => {
+    if (event.key ==='Enter') {
     ballPositionY = 5;
     velocityY = 0;
-    pathPoints.length = 0; // Clear the path
+    if (typeof pathPoints !== 'undefined') 
+        pathPoints.length = 0; // Clear the path
+        event.preventDefault();
+    }
 });
+
+renderer.domElement.style.pointerEvents = 'none'; // Disable pointer events on the canvas
 
 
