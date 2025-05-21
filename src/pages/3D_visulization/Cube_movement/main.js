@@ -1,20 +1,21 @@
-// Variables for physics
+// Physics and setup
 let velocityY = 0;
 const gravity = -0.001;
+let previousX = 0;
+let previousZ = 0;
 const backgroundCubes = [];
 
-// Pointer lock for mouse control
+// Pointer lock
 document.body.addEventListener("click", () => {
   document.body.requestPointerLock();
 });
-
 document.addEventListener("pointerlockchange", () => {
   const isLocked = document.pointerLockElement === document.body;
   const instruction = document.getElementById("instruction");
   if (instruction) instruction.style.display = isLocked ? "none" : "block";
 });
 
-// Scene and Camera
+// Scene
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.z = 5;
@@ -27,11 +28,11 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-// Load textures
-const textureLoader = new THREE.TextureLoader();
-const boxTexture = textureLoader.load("brickwall.jpg");
-const woodTexture = textureLoader.load("wood.jpg");
-const grassTexture = textureLoader.load("grass.jpg");
+// Textures
+const loader = new THREE.TextureLoader();
+const grassTexture = loader.load("grass.jpg");
+const woodTexture = loader.load("wood.jpg");
+const brickTexture = loader.load("brickwall.jpg");
 grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
 grassTexture.repeat.set(50, 50);
 
@@ -39,119 +40,121 @@ grassTexture.repeat.set(50, 50);
 const light = new THREE.DirectionalLight(0xffffff, 1);
 light.position.set(10, 20, 10);
 light.castShadow = true;
-light.shadow.mapSize.width = 1024;
-light.shadow.mapSize.height = 1024;
-light.shadow.camera.near = 1;
-light.shadow.camera.far = 50;
-light.shadow.camera.left = -10;
-light.shadow.camera.right = 10;
-light.shadow.camera.top = 10;
-light.shadow.camera.bottom = -10;
 scene.add(light);
-
-const ambient = new THREE.AmbientLight(0x404040);
-scene.add(ambient);
+scene.add(new THREE.AmbientLight(0x404040));
 
 // Main cube
-const geometry = new THREE.BoxGeometry();
-const material = new THREE.MeshStandardMaterial({ map: woodTexture });
-const cube = new THREE.Mesh(geometry, material);
-const cubeHalfHeight = geometry.parameters.height / 2;
-cube.position.y = cubeHalfHeight;
+const cube = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ map: woodTexture }));
 cube.castShadow = true;
+cube.position.y = 0.5;
 scene.add(cube);
+const cubeHalfHeight = 0.5;
 
-// Ground plane
-const groundGeo = new THREE.PlaneGeometry(100, 100);
-const groundMat = new THREE.MeshStandardMaterial({ map: grassTexture });
-const ground = new THREE.Mesh(groundGeo, groundMat);
+// Ground
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(100, 100),
+  new THREE.MeshStandardMaterial({ map: grassTexture })
+);
 ground.rotation.x = -Math.PI / 2;
-ground.position.y = 0;
 ground.receiveShadow = true;
 scene.add(ground);
 
 // Background cubes
 for (let i = 0; i < 20; i++) {
-  const boxGeo = new THREE.BoxGeometry(1, 3, 1);
-  const boxMat = new THREE.MeshStandardMaterial({ map: boxTexture });
-  const box = new THREE.Mesh(boxGeo, boxMat);
+  const box = new THREE.Mesh(new THREE.BoxGeometry(1, 3, 1), new THREE.MeshStandardMaterial({ map: brickTexture }));
   box.position.set((Math.random() - 0.5) * 20, 0, (Math.random() - 0.5) * 30);
-  box.castShadow = true;
-  box.receiveShadow = true;
+  box.castShadow = box.receiveShadow = true;
   backgroundCubes.push(box);
   scene.add(box);
 }
 
-// Slope
-const slope = new THREE.Mesh(
-  new THREE.PlaneGeometry(10, 10),
-  new THREE.MeshStandardMaterial({ color: 0x999999 })
-);
-slope.rotation.set(-Math.PI / 6, 0, 0); // 30 degree slope
-slope.position.set(0, 0, -10);
-slope.receiveShadow = true;
+// Filled slope using triangular prism (wedge)
+const prismGeometry = new THREE.BufferGeometry();
+const verts = new Float32Array([
+  // Bottom rectangle
+  -5, 0, -10,  5, 0, -10,  5, 0, -5,  -5, 0, -5,
+  // Top front edge (slope)
+  -5, 2.5, -5,  5, 2.5, -5
+]);
+const indices = [
+  // Bottom face
+  0, 1, 2,  0, 2, 3,
+  // Back vertical face
+  0, 1, 5,  0, 5, 4,
+  // Right vertical side
+  1, 2, 5,
+  // Left triangle side
+  0, 3, 4,
+  // Top slope
+  3, 2, 5,  3, 5, 4
+];
+prismGeometry.setAttribute("position", new THREE.BufferAttribute(verts, 3));
+prismGeometry.setIndex(indices);
+prismGeometry.computeVertexNormals();
+
+const slope = new THREE.Mesh(prismGeometry, new THREE.MeshStandardMaterial({ color: 0x888888 }));
+slope.castShadow = slope.receiveShadow = true;
 scene.add(slope);
 
-// Combine all static obstacles
 const allObstacles = [...backgroundCubes, slope];
 
-// Keyboard control
+// Keyboard and mouse controls
 let keysPressed = {};
 document.addEventListener("keydown", e => keysPressed[e.key.toLowerCase()] = true);
 document.addEventListener("keyup", e => keysPressed[e.key.toLowerCase()] = false);
 
-// Mouse rotation
 let rotationY = 0;
 document.addEventListener("mousemove", (event) => {
   if (document.pointerLockElement === document.body) {
-    const sensitivity = 0.01;
-    rotationY -= event.movementX * sensitivity;
+    rotationY -= event.movementX * 0.01;
   }
 });
 
-// Collision detection using bounding boxes
+// Collision detection
 function isColliding(a, b) {
   const boxA = new THREE.Box3().setFromObject(a);
   const boxB = new THREE.Box3().setFromObject(b);
   return boxA.intersectsBox(boxB);
 }
 
-// Update cube position
+// Movement logic
 function CubeMovement() {
   const speed = 0.1;
   const forward = new THREE.Vector3(Math.sin(rotationY), 0, Math.cos(rotationY));
   const right = new THREE.Vector3(Math.cos(rotationY), 0, -Math.sin(rotationY));
 
-  function attemptMove(directionVec, backward = false) {
-    const step = directionVec.clone().multiplyScalar(backward ? -speed : speed);
+  function tryMove(dir, backward = false) {
+    const step = dir.clone().multiplyScalar(backward ? -speed : speed);
     cube.position.add(step);
     for (let obs of allObstacles) {
       if (isColliding(cube, obs)) {
-        cube.position.sub(step);
+        const obsBox = new THREE.Box3().setFromObject(obs);
+        const cubeBox = new THREE.Box3().setFromObject(cube);
+        const bottom = cubeBox.min.y;
+        const top = obsBox.max.y;
+        const gap = Math.abs(bottom - top);
+        if (gap > 0.05) cube.position.sub(step);
         break;
       }
     }
   }
 
-  if (keysPressed["w"]) attemptMove(forward);
-  if (keysPressed["s"]) attemptMove(forward, true);
-  if (keysPressed["a"]) attemptMove(right);
-  if (keysPressed["d"]) attemptMove(right, true);
+  if (keysPressed["w"]) tryMove(forward);
+  if (keysPressed["s"]) tryMove(forward, true);
+  if (keysPressed["a"]) tryMove(right);
+  if (keysPressed["d"]) tryMove(right, true);
 
   if (keysPressed["q"]) velocityY += 0.002;
   if (keysPressed["e"]) velocityY -= 0.01;
 
-  // Apply gravity
   velocityY += gravity;
   cube.position.y += velocityY;
 
-  // Floor collision
   if (cube.position.y < cubeHalfHeight) {
     cube.position.y = cubeHalfHeight;
     velocityY = 0;
   }
 
-  // Landing check on other objects
   for (let obs of allObstacles) {
     if (isColliding(cube, obs)) {
       const obsBox = new THREE.Box3().setFromObject(obs);
@@ -167,30 +170,33 @@ function CubeMovement() {
   }
 }
 
-// Animation loop
+// Animate
 function animate() {
   requestAnimationFrame(animate);
   CubeMovement();
   cube.rotation.y = rotationY;
 
-  // Camera follows cube
-  const distance = 5;
-  const height = 3;
+  const distance = 5, height = 3;
   const offsetX = Math.sin(rotationY) * distance;
   const offsetZ = Math.cos(rotationY) * distance;
-  camera.position.x = cube.position.x - offsetX;
-  camera.position.z = cube.position.z - offsetZ;
-  camera.position.y = cube.position.y + height;
+  camera.position.set(cube.position.x - offsetX, cube.position.y + height, cube.position.z - offsetZ);
   camera.lookAt(cube.position);
 
-  // Debug display
+  const velocityX = cube.position.x - previousX;
+  const velocityZ = cube.position.z - previousZ;
+  previousX = cube.position.x;
+  previousZ = cube.position.z;
+
   const debugPanel = document.getElementById("debug");
   if (debugPanel) {
     debugPanel.innerHTML = `
       <strong>Physics Info</strong><br/>
       Position X: ${cube.position.x.toFixed(2)}<br/>
       Position Y: ${cube.position.y.toFixed(2)}<br/>
+      Position Z: ${cube.position.z.toFixed(2)}<br/>
+      Velocity X: ${velocityX.toFixed(4)}<br/>
       Velocity Y: ${velocityY.toFixed(4)}<br/>
+      Velocity Z: ${velocityZ.toFixed(4)}<br/>
       Acceleration (gravity): ${gravity}
     `;
   }
