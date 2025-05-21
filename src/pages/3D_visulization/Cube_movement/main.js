@@ -68,7 +68,31 @@ for (let i = 0; i < 20; i++) {
   scene.add(box);
 }
 
-// Filled slope using triangular prism (wedge)
+//custom shader material
+
+const prismShaderMaterial = new THREE.ShaderMaterial({
+  vertexShader: `
+    varying vec3 vPos;
+    void main() {
+      vPos = position;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    varying vec3 vPos;
+    void main() {
+      // A color effect based on position
+      float r = 0.5 + 0.5 * sin(vPos.y * 2.0);
+      float g = 0.5 + 0.5 * sin(vPos.x * 2.0);
+      float b = 0.5 + 0.5 * sin(vPos.z * 2.0);
+      gl_FragColor = vec4(r, g, b, 1.0);
+    }
+  `,
+  side: THREE.DoubleSide
+});
+
+
+// Filled slope using triangular prism 
 const prismGeometry = new THREE.BufferGeometry();
 const verts = new Float32Array([
   // Bottom rectangle
@@ -92,9 +116,10 @@ prismGeometry.setAttribute("position", new THREE.BufferAttribute(verts, 3));
 prismGeometry.setIndex(indices);
 prismGeometry.computeVertexNormals();
 
-const slope = new THREE.Mesh(prismGeometry, new THREE.MeshStandardMaterial({ color: 0x888888 }));
+const slope = new THREE.Mesh(prismGeometry, prismShaderMaterial);
 slope.castShadow = slope.receiveShadow = true;
 scene.add(slope);
+
 
 const allObstacles = [...backgroundCubes, slope];
 
