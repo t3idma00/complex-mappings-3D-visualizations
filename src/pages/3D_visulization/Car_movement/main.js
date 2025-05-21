@@ -74,7 +74,7 @@ wheelPositions.forEach((pos, index) => {
 });
 
 // Camera
-camera.position.set(5, 5, 10);
+camera.position.set(5, 5, 5);
 camera.lookAt(0, 0, 0);
 
 // Animate
