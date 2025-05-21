@@ -43,6 +43,8 @@ light.castShadow = true;
 scene.add(light);
 scene.add(new THREE.AmbientLight(0x404040));
 
+
+
 // Main cube
 const cube = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ map: woodTexture }));
 cube.castShadow = true;
@@ -71,6 +73,9 @@ for (let i = 0; i < 20; i++) {
 //custom shader material
 
 const prismShaderMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+    uTime: { value: 0.0 }
+  },
   vertexShader: `
     varying vec3 vPos;
     void main() {
@@ -79,15 +84,15 @@ const prismShaderMaterial = new THREE.ShaderMaterial({
     }
   `,
   fragmentShader: `
-    varying vec3 vPos;
-    void main() {
-      // A color effect based on position
-      float r = 0.5 + 0.5 * sin(vPos.y * 2.0);
-      float g = 0.5 + 0.5 * sin(vPos.x * 2.0);
-      float b = 0.5 + 0.5 * sin(vPos.z * 2.0);
-      gl_FragColor = vec4(r, g, b, 1.0);
-    }
-  `,
+  uniform float uTime;
+  varying vec3 vPos;
+  void main() {
+    float r = 0.5 + 0.5 * sin(vPos.y * 2.0 + uTime);
+    float g = 0.5 + 0.5 * sin(vPos.x * 2.0 + uTime);
+    float b = 0.5 + 0.5 * sin(vPos.z * 2.0 + uTime);
+    gl_FragColor = vec4(r, g, b, 1.0);
+  }
+`,
   side: THREE.DoubleSide
 });
 
@@ -200,6 +205,7 @@ function animate() {
   requestAnimationFrame(animate);
   CubeMovement();
   cube.rotation.y = rotationY;
+  prismShaderMaterial.uniforms.uTime.value += 0.01; 
 
   const distance = 5, height = 3;
   const offsetX = Math.sin(rotationY) * distance;
