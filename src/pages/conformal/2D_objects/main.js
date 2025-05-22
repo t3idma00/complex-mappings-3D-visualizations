@@ -324,7 +324,7 @@ function setupShapeSelector(container, scene, camera) {
     // list of shapes
     const shapes = [
       'square', 'circle', 'triangle', 'rectangle', 'ellipse',
-      'line segment', 'point', 'cross', 'arrow', 'star (5-pointed)'
+       'star (5-pointed)'
     ];
 
     shapes.forEach(shapeName => {
@@ -446,6 +446,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initVisualization('cosz-canvas', cosTransform);
     initVisualization('tanz-canvas', tanTransform);
     initVisualization('logz-canvas', logTransform);
-    initVisualization('lnz-canvas', lnTransform);
     initVisualization('expz-canvas', expTransform);
 });

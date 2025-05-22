@@ -58,10 +58,7 @@ const CONFIG = {
     return { x: 0.5 * Math.log(x * x + y * y), y: Math.atan2(y, x) };
   }
   
-  
-  function lnTransform(x, y) {
-    return logTransform(x, y); 
-  }
+
   
   // Exponential transform: e^z = e^x(cos(y) + i·sin(y))
   function expTransform(x, y) {
@@ -274,6 +271,5 @@ const CONFIG = {
       initVisualization('cosz-canvas', cosTransform);
       initVisualization('tanz-canvas', tanTransform);
       initVisualization('logz-canvas', logTransform);
-      initVisualization('lnz-canvas', lnTransform);
       initVisualization('expz-canvas', expTransform);
   });
