@@ -2,41 +2,155 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>3D Visualization Menu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Physics Visualization Portal</title>
   <style>
+    :root {
+      --primary-color: #4285f4;
+      --primary-hover: #3367d6;
+      --background: #f8f9fa;
+      --text-color: #202124;
+      --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
+      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      line-height: 1.6;
+      color: var(--text-color);
+      background-color: var(--background);
+      padding: 0;
+      margin: 0;
+      min-height: 100vh;
     }
-    .demo-button {
-      display: block;
-      margin: 10px 0;
-      padding: 12px 20px;
-      background: #4285f4;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-      cursor: pointer;
-      text-decoration: none;
-      width: 200px;
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    header {
       text-align: center;
+      margin-bottom: 2.5rem;
     }
-    .demo-button:hover {
-      background: #3367d6;
+    
+    h1 {
+      color: var(--primary-color);
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .subtitle {
+      color: #5f6368;
+      font-size: 1.1rem;
+    }
+    
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+    }
+    
+    .demo-card {
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .demo-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .demo-link {
+      display: block;
+      padding: 1.5rem;
+      text-decoration: none;
+      color: inherit;
+    }
+    
+    .demo-title {
+      color: var(--primary-color);
+      font-size: 1.3rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .demo-description {
+      color: #5f6368;
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+    }
+    
+    .demo-button {
+      display: inline-block;
+      padding: 0.6rem 1.2rem;
+      background: var(--primary-color);
+      color: white;
+      border-radius: 4px;
+      font-weight: 500;
+      transition: background 0.2s ease;
+    }
+    
+    .demo-card:hover .demo-button {
+      background: var(--primary-hover);
+    }
+    
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      color: #5f6368;
+      font-size: 0.9rem;
+    }
+    
+    @media (max-width: 600px) {
+      .container {
+        padding: 1.5rem;
+      }
+      
+      h1 {
+        font-size: 2rem;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>3D Motion Demos</h1>
-  
-  <!-- Correct relative path to MovementOfBall -->
-  <a href="MovementOfBall/index.html" class="demo-button">Movement of a Ball</a>
-  <a href="BallProjectionWithoutAR/index.html" class="demo-button">Ball Projection (Without Air resistant)</a>
-  <a href="BallProjectionWithAR/index.html" class="demo-button">Ball Projection (Without Air resistant)</a>
-  
-  <!-- Add more demo links as needed -->
-  <!-- <a href="Cube_movement/index.html" class="demo-button">Cube Movement</a> -->
-   
+  <div class="container">
+    <header>
+      <h1>3D Physics Visualizations</h1>
+      <p class="subtitle">Interactive demonstrations of projectile motion physics</p>
+    </header>
+    
+    <main class="demo-grid">
+      <div class="demo-card">
+        <a href="MovementOfBall/index.html" class="demo-link">
+          <h2 class="demo-title">Basic Ball Movement</h2>
+          <p class="demo-description">Explore fundamental 3D ball physics with gravity and collisions</p>
+          <span class="demo-button">View Demo</span>
+        </a>
+      </div>
+      
+      <div class="demo-card">
+        <a href="BallProjectionWithoutAR/index.html" class="demo-link">
+          <h2 class="demo-title">Projectile Motion</h2>
+          <p class="demo-description">Ideal projectile motion without air resistance</p>
+          <span class="demo-button">View Demo</span>
+        </a>
+      </div>
+      
+      <div class="demo-card">
+        <a href="BallProjectionWithAR/index.html" class="demo-link">
+          <h2 class="demo-title">Projectile with Air Resistance</h2>
+          <p class="demo-description">Realistic trajectory with drag forces</p>
+          <span class="demo-button">View Demo</span>
+        </a>
+      </div>
+    </main>
+    
+    <footer>
+      <p>Physics Visualization Lab | Built with Three.js</p>
+    </footer>
+  </div>
 </body>
 </html>
