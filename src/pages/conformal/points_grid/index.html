@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Complex Function Visualization</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+</head>
+<body>
+    <h1 class="header" >Complex Function Transformations</h1>
+
+    <div class="container">
+        <div class="canvas-container" style="position: sticky; top: 10px; z-index: 100;">
+            <div class="title">z = x + i·y</div>
+            <div id="input-canvas" class="canvas" ></div>
+        </div>
+
+        <div class="sub-container">
+            <div class="canvas-container">
+                <div class="title">z² = x² - y² + i·2xy</div>
+                <div id="z2-canvas" class="canvas"></div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="title">1/z = x/(x² + y²) - i·y/(x² + y²)</div>
+                <div id="inverse-canvas" class="canvas"></div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="title">z³ = x³ - 3xy² + i·(3x²y - y³)</div>
+                <div id="z3-canvas" class="canvas"></div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="title">sin(z) = sin(x)cosh(y) + i·cos(x)sinh(y)</div>
+                <div id="sinz-canvas" class="canvas"></div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="title">cos(z) = cos(x)cosh(y) - i·sin(x)sinh(y)</div>
+                <div id="cosz-canvas" class="canvas"></div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="title">tan(z) = sin(2x)/(cos(2x)+cosh(2y)) + i·sinh(2y)/(cos(2x)+cosh(2y))</div>
+                <div id="tanz-canvas" class="canvas"></div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="title">log(z) = ln|z| + i·Arg(z) = ln(√(x²+y²)) + i·atan2(y, x)</div>
+                <div id="logz-canvas" class="canvas"></div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="title">ln(z) = ln|z| + i·Arg(z) = ln(√(x²+y²)) + i·atan2(y, x)</div>
+                <div id="lnz-canvas" class="canvas"></div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="title">e^z = e^x(cos(y) + i·sin(y))</div>
+                <div id="expz-canvas" class="canvas"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
