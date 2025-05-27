@@ -98,6 +98,7 @@ function createHelpers() {
 
     const axesHelper = new THREE.AxesHelper(5);
     scene.add(axesHelper);
+    
 }
 
 //Create trajectory
