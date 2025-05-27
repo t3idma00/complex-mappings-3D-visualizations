@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cannon Ball Game</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: Arial, sans-serif;
+        }
+        canvas { 
+            display: block; 
+        }
+        #ui-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 300px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            display: none;
+            z-index: 100;
+        }
+        #view-controls {
+            position: absolute;
+            bottom: 50px;  /* Moved up to make space for calculations */
+            left: 20px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        #calculations-panel {
+            position: absolute;
+            top: 150px;  
+            left: 10px;
+            width: 320px;
+            max-height: 300px; 
+            overflow-y: auto;  /* Add scroll if needed */
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            z-index: 100;
+        }
+        #camera-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        .formula {
+            font-family: monospace;
+            background: rgba(255,255,255,0.2);
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin: 3px 0;  /* Reduced margin */
+            font-size: 0.9em;  /* Slightly smaller text */
+        }
+        .view-active {
+            background-color: #4CAF50 !important;
+            color: white;
+        }
+        #controls-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        hr {
+            margin: 5px 0;
+            border: 0;
+            height: 1px;
+            background: rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-panel">
+        <h2>Cannon Ball Game</h2>
+        <div>Angle: <span id="angle-display">45</span>°</div>
+        <div>Distance to target: <span id="distance-display">30</span>m</div>
+        <div>Shots fired: <span id="shots-display">0</span></div>
+        <div>Hits: <span id="hits-display">0</span></div>
+        <div>Current View: <span id="current-view">Orbit</span></div>
+    </div>
+    <div id="controls-info">
+        <strong>Controls:</strong><br>
+        ↑/↓: Adjust angle<br>
+        Space: Fire<br>
+        1-5: Change view<br>
+        R: Reset view<br>
+        Click: Show calculations
+    </div>
+    <div id="calculations-panel">
+        <h3 style="margin-top: 0; margin-bottom: 20px;">Projectile Physics</h3>
+        <div id="calculation-steps"></div>
+    </div>
+
+    <div id="message"></div>
+    <div id="view-controls">
+        <button id="orbit-view" class="view-active">Orbit (1)</button>
+        <button id="first-person">First Person (2)</button>
+        <button id="top-down">Top Down (3)</button>
+        <button id="side-view">Side (4)</button>
+        <button id="follow-view">Follow Ball (5)</button>
+    </div>
+    
+    <div id="camera-info">
+        Camera FOV: <span id="cam-fov">75</span>°
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script>
+        // Game configuration
+        const config = {
+            cannonPower: 20,
+            targetSize: 2,
+            targetDistance: 30,
+            ballRadius: 0.3,
+            gravity: -9.81,
+            cannonPositionX: -15,
+            minFOV: 30,
+            maxFOV: 100,
+            minAngle: 10,
+            maxAngle: 80,
+            angleStep: 1,
+            cameraDistance: 30
+        };
+
+        // Game state
+        const gameState = {
+            angle: 45,
+            shots: 0,
+            hits: 0,
+            isFiring: false,
+            showCalculations: false,
+            currentView: 'orbit'
+        };
+
+        // Initialize Three.js
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(10, 20, 10);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+
+        // Create ground
+        const groundGeometry = new THREE.PlaneGeometry(100, 50);
+        const groundMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x2E8B57,
+            roughness: 0.8
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Create cannon
+        function createCannon() {
+            const cannonGroup = new THREE.Group();
+            cannonGroup.position.set(config.cannonPositionX, 0, 0);
+            
+            // Cannon base (carriage)
+            const baseGeometry = new THREE.BoxGeometry(1.5, 0.3, 1);
+            const baseMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x333333,
+                metalness: 0.7,
+                roughness: 0.5
+            });
+            const cannonBase = new THREE.Mesh(baseGeometry, baseMaterial);
+            cannonBase.position.set(0, 0.15, 0);
+            cannonBase.castShadow = true;
+            
+            // Cannon barrel (tapered)
+            const barrelLength = 2.5;
+            const barrelGeometry = new THREE.CylinderGeometry(
+                0.15,  // Top radius
+                0.25,  // Bottom radius
+                barrelLength,
+                32,
+                1,
+                true   // Open ended
+            );
+            const barrelMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x555555,
+                metalness: 0.8,
+                roughness: 0.3
+            });
+            const cannonBarrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
+            cannonBarrel.position.set(0, 0.3, 0);
+            cannonBarrel.rotation.z = -Math.PI / 2;
+            cannonBarrel.castShadow = true;
+            
+            // Barrel details (rings)
+            const ringGeometry = new THREE.TorusGeometry(0.2, 0.03, 16, 32);
+            const ringMaterial = new THREE.MeshStandardMaterial({ color: 0x777777 });
+            for (let i = 0; i < 3; i++) {
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.position.set(-0.5 + i * 0.8, 0.3, 0);
+                ring.rotation.z = Math.PI / 2;
+                cannonGroup.add(ring);
+            }
+            
+            // Wheels
+            const wheelMaterial = new THREE.MeshStandardMaterial({
+                color: 0x222222,
+                metalness: 0.5,
+                roughness: 0.7
+            });
+            const wheelGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 32);
+            
+            const leftWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            leftWheel.position.set(0.5, 0.15, 0.6);
+            leftWheel.rotation.z = Math.PI / 2;
+            
+            const rightWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            rightWheel.position.set(0.5, 0.15, -0.6);
+            rightWheel.rotation.z = Math.PI / 2;
+            
+            // Wheel details (spokes)
+            const spokeMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
+            const spokeGeometry = new THREE.BoxGeometry(0.02, 0.3, 0.02);
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const spoke = new THREE.Mesh(spokeGeometry, spokeMaterial);
+                spoke.position.set(0.5, 0.15, 0.6);
+                spoke.rotation.z = angle;
+                spoke.rotation.y = Math.PI / 2;
+                cannonGroup.add(spoke.clone());
+                
+                const spoke2 = spoke.clone();
+                spoke2.position.z = -0.6;
+                cannonGroup.add(spoke2);
+            }
+            
+            // Cannon support
+            const supportGeometry = new THREE.BoxGeometry(0.1, 0.5, 0.8);
+            const supportMaterial = new THREE.MeshStandardMaterial({ color: 0x3a3a3a });
+            const leftSupport = new THREE.Mesh(supportGeometry, supportMaterial);
+            leftSupport.position.set(-0.3, 0.25, 0.4);
+            
+            const rightSupport = new THREE.Mesh(supportGeometry, supportMaterial);
+            rightSupport.position.set(-0.3, 0.25, -0.4);
+            
+            // Add all parts to the group
+            cannonGroup.add(cannonBase);
+            cannonGroup.add(cannonBarrel);
+            cannonGroup.add(leftWheel);
+            cannonGroup.add(rightWheel);
+            cannonGroup.add(leftSupport);
+            cannonGroup.add(rightSupport);
+            
+            return {
+                group: cannonGroup,
+                barrel: cannonBarrel,
+                barrelLength: barrelLength
+            };
+        }
+
+        const cannon = createCannon();
+        scene.add(cannon.group);
+
+        // Create target
+        const target = new THREE.Mesh(
+            new THREE.BoxGeometry(config.targetSize, config.targetSize, 0.1),
+            new THREE.MeshStandardMaterial({ color: 0xff69679 })
+        );
+        target.position.set(config.cannonPositionX + config.targetDistance, config.targetSize/2, 0);
+        target.castShadow = true;
+        scene.add(target);
+
+        // Create ball
+        const ballGeometry = new THREE.SphereGeometry(config.ballRadius, 32, 32);
+        const ballMaterial = new THREE.MeshStandardMaterial({ color:0x990000});  // Light orange
+        const ball = new THREE.Mesh(ballGeometry, ballMaterial);
+        ball.castShadow = true;
+        ball.visible = false;
+        scene.add(ball);
+
+        // Camera control functions
+        function setOrbitView() {
+            camera.position.set(
+                config.cannonPositionX/2, 
+                10, 
+                config.cameraDistance
+            );
+            camera.lookAt(config.cannonPositionX/2, 0, 0);
+            camera.rotation.order = 'YXZ';
+            gameState.currentView = 'orbit';
+            updateViewUI();
+        }
+
+        function setFirstPersonView() {
+            const angleRad = gameState.angle * Math.PI / 180;
+            // Position camera at the end of the cannon barrel
+            camera.position.set(
+                config.cannonPositionX + Math.cos(angleRad) * 1.8,
+                0.5 + Math.sin(angleRad) * 1.8,
+                0
+            );
+            // Point camera along the barrel
+            camera.lookAt(
+                config.cannonPositionX + Math.cos(angleRad) * 5,
+                0.5 + Math.sin(angleRad) * 5,
+                0
+            );
+            gameState.currentView = 'first-person';
+            updateViewUI();
+        }
+
+        function setTopDownView() {
+            camera.position.set(
+                config.cannonPositionX/2, 
+                50, 
+                0
+            );
+            camera.rotation.x = -Math.PI / 2;
+            camera.rotation.y = 0;
+            camera.rotation.z = 0;
+            gameState.currentView = 'top-down';
+            updateViewUI();
+        }
+
+        function setSideView() {
+            camera.position.set(
+                config.cannonPositionX - 15, 
+                10, 
+                0
+            );
+            camera.lookAt(config.cannonPositionX + 15, 0, 0);
+            gameState.currentView = 'side';
+            updateViewUI();
+        }
+
+        function setFollowBallView() {
+            if (!physics.ballActive) return;
+            const followDistance = 5;
+            // Position camera behind and slightly above the ball
+            camera.position.set(
+                ball.position.x - followDistance,
+                ball.position.y + followDistance * 0.3,
+                0
+            );
+            camera.lookAt(ball.position.x, ball.position.y, ball.position.z);
+            gameState.currentView = 'follow';
+            updateViewUI();
+        }
+
+        function updateViewUI() {
+            const viewNames = {
+                'orbit': 'Orbit',
+                'first-person': 'First Person',
+                'top-down': 'Top Down',
+                'side': 'Side',
+                'follow': 'Follow Ball'
+            };
+            document.getElementById('current-view').textContent = viewNames[gameState.currentView];
+            
+            // Update active button
+            document.querySelectorAll('#view-controls button').forEach(btn => {
+                btn.classList.remove('view-active');
+            });
+            document.getElementById(`${gameState.currentView.replace('-','')}-view`).classList.add('view-active');
+        }
+
+        function updateAngleDisplay() {
+            document.getElementById('angle-display').textContent = Math.round(gameState.angle);
+            cannon.barrel.rotation.z = -gameState.angle * Math.PI / 180;
+            
+            if (gameState.currentView === 'first-person') {
+                setFirstPersonView();
+            }
+        }
+
+        function adjustAngle(change) {
+            gameState.angle = Math.max(
+                config.minAngle,
+                Math.min(config.maxAngle, gameState.angle + change)
+            );
+            updateAngleDisplay();
+            
+            if (gameState.showCalculations) {
+                showCalculations();
+            }
+        }
+
+        // Physics state
+        const physics = {
+            velocityX: 0,
+            velocityY: 0,
+            ballActive: false,
+            update: function(deltaTime) {
+                if (!this.ballActive) return;
+                
+                const deltaSeconds = deltaTime / 1000;
+                this.velocityY += config.gravity * deltaSeconds;
+                ball.position.x += this.velocityX * deltaSeconds;
+                ball.position.y += this.velocityY * deltaSeconds;
+                
+                if (gameState.currentView === 'follow') {
+                    setFollowBallView();
+                }
+                
+                if (ball.position.y <= config.ballRadius) {
+                    ball.position.y = config.ballRadius;
+                    this.ballActive = false;
+                    ball.visible = false;
+                    gameState.isFiring = false;
+                    
+                    const distanceToTarget = Math.abs(ball.position.x - target.position.x);
+                    if (distanceToTarget < config.targetSize/2 + config.ballRadius) {
+                        gameState.hits++;
+                        document.getElementById('hits-display').textContent = gameState.hits;
+                        showMessage("Target Hit!", 2000);
+                    }
+                }
+                
+                if (ball.position.x > 100 || ball.position.y < -10) {
+                    this.ballActive = false;
+                    ball.visible = false;
+                    gameState.isFiring = false;
+                }
+            },
+            fire: function() {
+            const radians = gameState.angle * Math.PI / 180;
+            this.velocityX = config.cannonPower * Math.cos(radians);
+            this.velocityY = config.cannonPower * Math.sin(radians);
+            
+            // Position ball at end of barrel using the new cannon.barrelLength
+            ball.position.set(
+                config.cannonPositionX + Math.cos(radians) * cannon.barrelLength,
+                config.ballRadius + Math.sin(radians) * cannon.barrelLength,
+                0
+            );
+            ball.visible = true;
+            this.ballActive = true;
+            
+            gameState.shots++;
+            document.getElementById('shots-display').textContent = gameState.shots;
+            gameState.isFiring = true;
+            
+            if (gameState.currentView === 'follow') {
+                setFollowBallView();
+                }
+            },
+            calculateTrajectory: function() {
+                const radians = gameState.angle * Math.PI / 180;
+                const v0 = config.cannonPower;
+                const g = -config.gravity;
+                const v0x = v0 * Math.cos(radians);
+                const v0y = v0 * Math.sin(radians);
+                
+                const t_flight = (2 * v0y) / g;
+                const h_max = (v0y * v0y) / (2 * g);
+                const distance = v0x * t_flight;
+                
+                return {
+                    initialVelocity: v0,
+                    angle: gameState.angle,
+                    velocityX: v0x.toFixed(2),
+                    velocityY: v0y.toFixed(2),
+                    timeOfFlight: t_flight.toFixed(2),
+                    maxHeight: h_max.toFixed(2),
+                    distance: distance.toFixed(2),
+                    targetDistance: config.targetDistance
+                };
+            }
+        };
+
+        // UI functions
+        function showMessage(text, duration) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.style.display = 'block';
+            setTimeout(() => msg.style.display = 'none', duration);
+        }
+
+        function showCalculations() {
+            const calc = physics.calculateTrajectory();
+            document.getElementById('calculation-steps').innerHTML = `
+                <div class="formula">Initial Velocity (v₀) = ${calc.initialVelocity} m/s</div>
+                <div class="formula">Angle (θ) = ${calc.angle}°</div>
+                <hr>
+                <div class="formula">Horizontal Velocity (vₓ) = v₀·cosθ = ${calc.velocityX} m/s</div>
+                <div class="formula">Vertical Velocity (vᵧ) = v₀·sinθ = ${calc.velocityY} m/s</div>
+                <hr>
+                <div class="formula">Time of Flight = 2vᵧ/g = ${calc.timeOfFlight} s</div>
+                <div class="formula">Max Height = vᵧ²/2g = ${calc.maxHeight} m</div>
+                <div class="formula">Distance = vₓ × Time = ${calc.distance} m</div>
+                <hr>
+                <div>Target Distance = ${calc.targetDistance} m</div>
+                <div>Difference = ${(calc.distance - calc.targetDistance).toFixed(2)} m</div>
+            `;
+            document.getElementById('calculations-panel').style.display = 'block';
+            gameState.showCalculations = true;
+        }
+
+        function hideCalculations() {
+            document.getElementById('calculations-panel').style.display = 'none';
+            gameState.showCalculations = false;
+        }
+
+        // Event listeners
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowUp':
+                    adjustAngle(config.angleStep);
+                    break;
+                case 'ArrowDown':
+                    adjustAngle(-config.angleStep);
+                    break;
+                case ' ':
+                    if (!gameState.isFiring) {
+                        physics.fire();
+                    }
+                    break;
+                case '1':
+                    setOrbitView();
+                    break;
+                case '2':
+                    setFirstPersonView();
+                    break;
+                case '3':
+                    setTopDownView();
+                    break;
+                case '4':
+                    setSideView();
+                    break;
+                case '5':
+                    setFollowBallView();
+                    break;
+                case 'r':
+                    setOrbitView();
+                    break;
+            }
+        });
+
+        // View control buttons
+        document.getElementById('orbit-view').addEventListener('click', setOrbitView);
+        document.getElementById('first-person').addEventListener('click', setFirstPersonView);
+        document.getElementById('top-down').addEventListener('click', setTopDownView);
+        document.getElementById('side-view').addEventListener('click', setSideView);
+        document.getElementById('follow-view').addEventListener('click', setFollowBallView);
+
+        // Click to show calculations
+        renderer.domElement.addEventListener('click', (e) => {
+            if (e.target.tagName.toLowerCase() === 'button') return;
+            if (gameState.showCalculations) {
+                hideCalculations();
+            } else {
+                showCalculations();
+            }
+        });
+
+        // Mouse wheel for zoom/FOV
+        renderer.domElement.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            if (e.ctrlKey) {
+                // Adjust FOV
+                camera.fov = Math.max(
+                    config.minFOV,
+                    Math.min(config.maxFOV, camera.fov - e.deltaY * 0.1)
+                );
+                camera.updateProjectionMatrix();
+                document.getElementById('cam-fov').textContent = Math.round(camera.fov);
+            } else if (gameState.currentView === 'orbit') {
+                // Dolly in/out for orbit view
+                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                config.cameraDistance = Math.max(10, Math.min(100, config.cameraDistance * zoomFactor));
+                setOrbitView();
+            }
+        });
+
+        // Initialize game
+        setOrbitView();
+        updateAngleDisplay();
+        showMessage("Use arrow keys to aim, Space to fire", 3000);
+
+        // Animation loop
+        let lastTime = 0;
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+            
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            physics.update(deltaTime);
+            renderer.render(scene, camera);
+        }
+        animate(0);
+    </script>
+</body>
+</html>
