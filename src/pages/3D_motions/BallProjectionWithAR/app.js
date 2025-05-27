@@ -6,14 +6,15 @@ const stats = {
 
 //Scene setup
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x333333, 0.001);
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.001);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 
 //Configuration
 const config = {
     ballRadius: 0.1,
-    groundSize: 30,
+    groundSize: 400,
     gridSize: 30,
     gridDivisions: 30,
     ballSegment: 32,
@@ -23,7 +24,7 @@ const config = {
 //Initialize renderer
 function initRenderer() {
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0x333333);
+    renderer.setClearColor(0x87CEEB);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Soft shadows
     document.body.appendChild(renderer.domElement);
@@ -52,7 +53,7 @@ function createBall(){
         config.ballSegment
     );
     const material = new THREE.MeshStandardMaterial({ 
-        color: 0x0077ff,
+        color: 0xff0000,
         roughness: 0.1,
         metalness: 0.3,
         emissive: 0x000000,
@@ -69,7 +70,7 @@ function createBall(){
 function createGround() {
     const geometry = new THREE.PlaneGeometry(config.groundSize, config.groundSize);
     const material = new THREE.MeshStandardMaterial({
-        color: 0xaaaaaa,
+        color: 0x2E8B57,
         side: THREE.DoubleSide,
         roughness: 0.8,
         metalness: 0.2
@@ -84,15 +85,6 @@ function createGround() {
 
 //Create helpers
 function createHelpers() {
-    const gridHelper = new THREE.GridHelper(
-        config.gridSize,
-        config.gridDivisions,
-        0x555555,
-        0x333333
-    );
-    gridHelper.position.y = -config.ballRadius;
-    scene.add(gridHelper);
-
     const axesHelper = new THREE.AxesHelper(5);
     scene.add(axesHelper);
 }
@@ -126,13 +118,16 @@ class PhysicsEngine {
         this.pathPoints = [];
         this.isSimulating = false;
         this.ballMass = 1; // kg - added mass property
-        //this.bounceFactor = 0.8; // Energy retained after bounce
-        this.rollingResistance = 0.01;  // Resistance when rolling
-        this.minVelocityThreshold =0.05;
+        this.bounceFactor = 0.65; // Energy retained after bounce
+        this.rollingResistance = 0.05;  // Resistance when rolling
+        this.minVelocityThreshold =0.005;
+        this.minBounceHeight = 0.005; // Minimum height to consider a bounce
+        this.rollingFriction = 0.98; // Friction when rolling on ground
         this.firstHitTime = 0;
         this.firstHitDistance = 0;
         this.hasFirstHit = false;  
         this.timeElapsed = 0;
+        this.isRolling = false;
 
     }
 
@@ -185,74 +180,79 @@ class PhysicsEngine {
     update(deltaTime) {
         if (!this.isSimulating) return;
 
-        // Convert deltaTime from ms to seconds for real physics
         const deltaTimeSeconds = deltaTime / 1000; 
         this.timeElapsed += deltaTimeSeconds;
 
-        //Apply Gravity
-            this.velocityY += this.gravity * deltaTimeSeconds;
+        // Apply Gravity
+        this.velocityY += this.gravity * deltaTimeSeconds;
 
-        //Calculate velocity magnitude
-        const velocity = Math.sqrt(
-            this.velocityX **2 +
-            this.velocityY **2 +
-            this.velocityZ **2
-        );
-
-        //Air resisitance calculation (Drag force)
-        if (velocity > 0) {
-            //Drag force magnitude : Fd = 0.5 * ρ * v^2 * Cd * A
-            const dragForce = (0.5 * this.airDensity * velocity**2 
-            * this.dragCoefficient * this.crossSectionArea*0.1)/this.ballMass;
-
+        // Air resistance (only when not rolling for more realism)
+        if (!this.isRolling) {
+            const velocity = Math.sqrt(this.velocityX**2 + this.velocityY**2 + this.velocityZ**2);
+            if (velocity > 0) {
+                const dragForce = (0.5 * this.airDensity * velocity**2 * 
+                                 this.dragCoefficient * this.crossSectionArea) / this.ballMass;
+                
                 this.velocityX -= (this.velocityX / velocity) * dragForce * deltaTimeSeconds;
                 this.velocityY -= (this.velocityY / velocity) * dragForce * deltaTimeSeconds;
                 this.velocityZ -= (this.velocityZ / velocity) * dragForce * deltaTimeSeconds;
+            }
         }
 
-
-        //Update position
+        // Update position
         this.ballPositionX += this.velocityX * deltaTimeSeconds;
         this.ballPositionY += this.velocityY * deltaTimeSeconds;
         this.ballPositionZ += this.velocityZ * deltaTimeSeconds;
 
-        // Ground collision with more realistic bounce
+        // Ground collision
         if (this.ballPositionY <= this.groundLevel) {
             const overShoot = this.groundLevel - this.ballPositionY;
             this.ballPositionY = this.groundLevel + overShoot * 0.2;
-            //Record first hit time and distance
+            
+            // Record first hit
             if (!this.hasFirstHit) {
                 this.firstHitTime = this.timeElapsed;
                 this.firstHitDistance = Math.abs(this.ballPositionX);
                 this.hasFirstHit = true;
-
-                //Update stats
                 stats.distance = this.firstHitDistance.toFixed(2)+" m";
                 stats.time = this.firstHitTime.toFixed(2)+" s";
                 if (this.statsPanel) this.statsPanel.updateDisplay();
             }
             
-
-            
-            // Energy loss on impact
-            this.velocityY = -this.velocityY * this.bounceFactor;
-            
-            // Apply rolling resistance when on ground
-            if (Math.abs(this.velocityY) < 0.1) {
-                this.velocityX *= (1 - this.rollingResistance);
-                this.velocityZ *= (1 - this.rollingResistance);
+            // Handle bounce or rolling
+            if (Math.abs(this.velocityY) > this.minBounceHeight) {
+                // Bounce
+                this.isRolling = false;
+                this.velocityY = -this.velocityY * this.bounceFactor;
+                // Reduce horizontal velocity more aggressively during bounces
+                this.velocityX *= 0.85;
+                this.velocityZ *= 0.85;
+            } else {
+                // Rolling
+                this.isRolling = true;
+                this.velocityY = 0;
+                // Apply rolling resistance
+                this.velocityX *= this.rollingFriction;
+                this.velocityZ *= this.rollingFriction;
             }
 
-            //Stop simulation if energy is very low
-            if (velocity < this.minVelocityThreshold) {
+            // Check for stop condition
+            const currentSpeed = Math.sqrt(this.velocityX**2 + this.velocityZ**2);
+            if (currentSpeed < this.minVelocityThreshold && 
+                Math.abs(this.velocityY) < 0.001) {
                 this.isSimulating = false;
+                this.velocityX = 0;
+                this.velocityY = 0;
+                this.velocityZ = 0;
+                this.ballPositionY = this.groundLevel;
             }
         }
+        
         this.updateBallPosition();
     }
     updateBallPosition() {
-        this.ball.position.set(this.ballPositionX, this.ballPositionY, this.ballPositionZ);
-    }
+    this.ball.position.set(this.ballPositionX, this.ballPositionY, this.ballPositionZ);
+}
 }
 
 //Create stats panel
