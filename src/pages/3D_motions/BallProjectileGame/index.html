@@ -426,37 +426,56 @@
             velocityY: 0,
             ballActive: false,
             update: function(deltaTime) {
-                if (!this.ballActive) return;
+            if (!this.ballActive) return;
+            
+            const deltaSeconds = deltaTime / 1000;
+            this.velocityY += config.gravity * deltaSeconds;
+            ball.position.x += this.velocityX * deltaSeconds;
+            ball.position.y += this.velocityY * deltaSeconds;
+            
+            if (gameState.currentView === 'follow') {
+                setFollowBallView();
+            }
+            
+            // Check for target hit during flight (direct hit)
+            const ballToTarget = new THREE.Vector2(
+                ball.position.x - target.position.x,
+                ball.position.y - target.position.y
+            );
+            const distance = ballToTarget.length();
+            const hitRadius = (config.targetSize/2) + config.ballRadius;
+            
+            if (distance <= hitRadius) {
+                gameState.hits++;
+                document.getElementById('hits-display').textContent = gameState.hits;
+                showMessage("Direct Hit!", 2000);
+                this.ballActive = false;
+                ball.visible = false;
+                gameState.isFiring = false;
+                return;
+            }
+            
+            // Check for ground collision
+            if (ball.position.y <= config.ballRadius) {
+                ball.position.y = config.ballRadius;
+                this.ballActive = false;
+                ball.visible = false;
+                gameState.isFiring = false;
                 
-                const deltaSeconds = deltaTime / 1000;
-                this.velocityY += config.gravity * deltaSeconds;
-                ball.position.x += this.velocityX * deltaSeconds;
-                ball.position.y += this.velocityY * deltaSeconds;
-                
-                if (gameState.currentView === 'follow') {
-                    setFollowBallView();
+                // Check for target hit on ground (near miss)
+                if (Math.abs(ball.position.x - target.position.x) < hitRadius) {
+                    gameState.hits++;
+                    document.getElementById('hits-display').textContent = gameState.hits;
+                    showMessage("Target Hit!", 2000);
                 }
-                
-                if (ball.position.y <= config.ballRadius) {
-                    ball.position.y = config.ballRadius;
-                    this.ballActive = false;
-                    ball.visible = false;
-                    gameState.isFiring = false;
-                    
-                    const distanceToTarget = Math.abs(ball.position.x - target.position.x);
-                    if (distanceToTarget < config.targetSize/2 + config.ballRadius) {
-                        gameState.hits++;
-                        document.getElementById('hits-display').textContent = gameState.hits;
-                        showMessage("Target Hit!", 2000);
-                    }
-                }
-                
-                if (ball.position.x > 100 || ball.position.y < -10) {
-                    this.ballActive = false;
-                    ball.visible = false;
-                    gameState.isFiring = false;
-                }
-            },
+            }
+            
+            if (ball.position.x > 100 || ball.position.y < -10) {
+                this.ballActive = false;
+                ball.visible = false;
+                gameState.isFiring = false;
+            }
+        },
             fire: function() {
             const radians = gameState.angle * Math.PI / 180;
             this.velocityX = config.cannonPower * Math.cos(radians);
