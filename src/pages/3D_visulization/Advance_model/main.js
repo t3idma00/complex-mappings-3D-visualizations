@@ -27,7 +27,7 @@ grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
 grassTexture.repeat.set(50, 50);
 
 // Lighting
-const light = new THREE.DirectionalLight(0xffffff, 1);
+const light = new THREE.DirectionalLight(0xffffff, 1.5);
 light.position.set(10, 20, 10);
 light.castShadow = true;
 scene.add(light);
