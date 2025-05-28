@@ -14,16 +14,16 @@ const CONFIG = {
 
 // Global variables
 let scenes = {};
-let initialShape = null; // Represents the currently displayed shape on input-canvas
-let initialShapeVertices = []; // Not used directly for multi-shape history, but for single shape manipulation
+let initialShape = null; 
+let initialShapeVertices = []; 
 let dragging = false;
 let dragOffset = { x: 0, y: 0 };
-let draggedShapeIndex = -1; // New: Index of the shape being dragged in drawingHistory
+let draggedShapeIndex = -1; 
 
 // Freehand Drawing variables
 let isDrawing = false;
 let currentDrawingPoints = [];
-let freehandLine = null; // To visualize the drawing process
+let freehandLine = null; 
 
 // New: History of drawn shapes, each element is an array of vertices
 let drawingHistory = [];
@@ -149,11 +149,9 @@ function addBaseGrid(scene) {
 }
 
 function createShapeGeometryFromVertices(vertices) {
-    // For freehand drawing, we can simply create a Line loop or LineSegments.
-    // If you want a filled shape, it's more complex as it needs to be convex
-    // or triangulated. For now, we'll draw it as a line.
+    
     if (!vertices || vertices.length < 2) {
-        if (vertices.length === 1) { // Handle single points as well
+        if (vertices.length === 1) { 
             const geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.Float32BufferAttribute([vertices[0].x, vertices[0].y, 0], 3));
             return geometry;
@@ -172,7 +170,7 @@ function createShapeGeometryFromVertices(vertices) {
 function createMeshFromGeometry(geometry, color) {
     if (!geometry) return null;
     const material = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
-    return new THREE.Line(geometry, material); // Use Line for freehand
+    return new THREE.Line(geometry, material); 
 }
 
 function addTransformedShape(scene, transform, vertices) {
@@ -181,14 +179,14 @@ function addTransformedShape(scene, transform, vertices) {
     const transformedVertices = vertices.map(v => transform(v.x, v.y));
     const validTransformedVertices = transformedVertices.filter(v => !isNaN(v.x) && !isNaN(v.y) && isFinite(v.x) && isFinite(v.y));
 
-    if (validTransformedVertices.length < 2 && validTransformedVertices.length !== 1) { // Need at least 2 points for a line, or 1 for a point
+    if (validTransformedVertices.length < 2 && validTransformedVertices.length !== 1) { 
         return null;
     }
 
     const geometry = createShapeGeometryFromVertices(validTransformedVertices);
     if (!geometry) return null;
     const material = new THREE.LineBasicMaterial({ color: 0xffa500, linewidth: 2 });
-    const mesh = new THREE.Line(geometry, material); // Always draw as a line
+    const mesh = new THREE.Line(geometry, material); 
     scene.add(mesh);
     return mesh;
 }
@@ -237,12 +235,12 @@ function initVisualization(canvasId, transformFunction) {
         return;
     }
 
-    scenes[canvasId] = { scene, camera, renderer, container, transformFunction, transformedShapes: [] }; // transformedShapes now an array
+    scenes[canvasId] = { scene, camera, renderer, container, transformFunction, transformedShapes: [] }; 
     addBaseGrid(scene);
 
     if (canvasId === 'input-canvas') {
         setupFreehandDrawing(container, scene, camera);
-        setupUndoButton(); // New: setup the undo button
+        setupUndoButton(); 
     }
 
     function animate() {
@@ -278,7 +276,7 @@ function setupFreehandDrawing(container, scene, camera) {
                     const firstVertex = shapeVertices[0];
                     dragOffset.x = intersectPoint.x - firstVertex.x;
                     dragOffset.y = intersectPoint.y - firstVertex.y;
-                    return; // Stop here, we are dragging
+                    return; 
                 }
             }
 
@@ -388,8 +386,8 @@ function setupUndoButton() {
     if (undoButton) {
         undoButton.addEventListener('click', () => {
             if (drawingHistory.length > 0) {
-                drawingHistory.pop(); // Remove the last drawn shape
-                updateAllScenes(); // Re-render all scenes
+                drawingHistory.pop(); 
+                updateAllScenes(); 
             }
         });
     }
@@ -400,7 +398,7 @@ function updateAllScenes() {
     for (const canvasId in scenes) {
         const { scene, transformedShapes } = scenes[canvasId];
         transformedShapes.forEach(shape => scene.remove(shape));
-        scenes[canvasId].transformedShapes = []; // Clear the array
+        scenes[canvasId].transformedShapes = [];
     }
 
     // Redraw all shapes from history in all scenes
