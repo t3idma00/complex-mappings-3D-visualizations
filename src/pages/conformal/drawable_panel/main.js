@@ -14,18 +14,18 @@ const CONFIG = {
 
 // Global variables
 let scenes = {};
-let initialShape = null; 
-let initialShapeVertices = []; 
+let initialShape = null;
+let initialShapeVertices = [];
 let dragging = false;
-let dragOffset = { x: 0, y: 0 };
+let dragStartMouse = { x: 0, y: 0 }; 
 let draggedShapeIndex = -1; 
 
 // Freehand Drawing variables
 let isDrawing = false;
 let currentDrawingPoints = [];
-let freehandLine = null; 
+let freehandLine = null;
 
-// New: History of drawn shapes, each element is an array of vertices
+//History of drawn shapes, each element is an array of vertices
 let drawingHistory = [];
 
 // COMPLEX FUNCTION TRANSFORMATIONS
@@ -149,9 +149,9 @@ function addBaseGrid(scene) {
 }
 
 function createShapeGeometryFromVertices(vertices) {
-    
+
     if (!vertices || vertices.length < 2) {
-        if (vertices.length === 1) { 
+        if (vertices.length === 1) {
             const geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.Float32BufferAttribute([vertices[0].x, vertices[0].y, 0], 3));
             return geometry;
@@ -170,7 +170,7 @@ function createShapeGeometryFromVertices(vertices) {
 function createMeshFromGeometry(geometry, color) {
     if (!geometry) return null;
     const material = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
-    return new THREE.Line(geometry, material); 
+    return new THREE.Line(geometry, material);
 }
 
 function addTransformedShape(scene, transform, vertices) {
@@ -179,14 +179,14 @@ function addTransformedShape(scene, transform, vertices) {
     const transformedVertices = vertices.map(v => transform(v.x, v.y));
     const validTransformedVertices = transformedVertices.filter(v => !isNaN(v.x) && !isNaN(v.y) && isFinite(v.x) && isFinite(v.y));
 
-    if (validTransformedVertices.length < 2 && validTransformedVertices.length !== 1) { 
+    if (validTransformedVertices.length < 2 && validTransformedVertices.length !== 1) {
         return null;
     }
 
     const geometry = createShapeGeometryFromVertices(validTransformedVertices);
     if (!geometry) return null;
     const material = new THREE.LineBasicMaterial({ color: 0xffa500, linewidth: 2 });
-    const mesh = new THREE.Line(geometry, material); 
+    const mesh = new THREE.Line(geometry, material);
     scene.add(mesh);
     return mesh;
 }
@@ -235,12 +235,12 @@ function initVisualization(canvasId, transformFunction) {
         return;
     }
 
-    scenes[canvasId] = { scene, camera, renderer, container, transformFunction, transformedShapes: [] }; 
+    scenes[canvasId] = { scene, camera, renderer, container, transformFunction, transformedShapes: [] };
     addBaseGrid(scene);
 
     if (canvasId === 'input-canvas') {
         setupFreehandDrawing(container, scene, camera);
-        setupUndoButton(); 
+        setupUndoButton();
     }
 
     function animate() {
@@ -255,6 +255,10 @@ function setupFreehandDrawing(container, scene, camera) {
     let raycaster = new THREE.Raycaster();
     let mouse = new THREE.Vector2();
 
+    container.addEventListener('contextmenu', (event) => {
+        event.preventDefault(); 
+    });
+
     container.addEventListener('mousedown', (event) => {
         if (container.id === 'input-canvas') {
             const rect = container.getBoundingClientRect();
@@ -262,38 +266,28 @@ function setupFreehandDrawing(container, scene, camera) {
             mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
             raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(scene.children.filter(obj => obj instanceof THREE.Line));
-
-            if (intersects.length > 0) {
-                // Check if the intersected object is one of our drawn shapes
-                const clickedObject = intersects[0].object;
-                const index = scenes['input-canvas'].transformedShapes.indexOf(clickedObject);
-                if (index !== -1) {
-                    dragging = true;
-                    draggedShapeIndex = index;
-                    const intersectPoint = intersects[0].point;
-                    const shapeVertices = drawingHistory[draggedShapeIndex];
-                    const firstVertex = shapeVertices[0];
-                    dragOffset.x = intersectPoint.x - firstVertex.x;
-                    dragOffset.y = intersectPoint.y - firstVertex.y;
-                    return; 
-                }
-            }
-
-            // If not dragging an existing shape, start drawing
-            isDrawing = true;
-            currentDrawingPoints = [];
-            if (freehandLine) {
-                scene.remove(freehandLine);
-                freehandLine = null;
-            }
-
             const hitPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
             const intersectPoint = new THREE.Vector3();
             raycaster.ray.intersectPlane(hitPlane, intersectPoint);
 
-            if (intersectPoint) {
-                currentDrawingPoints.push({ x: intersectPoint.x, y: intersectPoint.y });
+
+            if (event.button === 2) { 
+                if (intersectPoint) {
+                    dragging = true;
+                    dragStartMouse.x = intersectPoint.x;
+                    dragStartMouse.y = intersectPoint.y;
+                }
+            } else if (event.button === 0) { 
+                isDrawing = true;
+                currentDrawingPoints = [];
+                if (freehandLine) {
+                    scene.remove(freehandLine);
+                    freehandLine = null;
+                }
+
+                if (intersectPoint) {
+                    currentDrawingPoints.push({ x: intersectPoint.x, y: intersectPoint.y });
+                }
             }
         }
     });
@@ -309,18 +303,22 @@ function setupFreehandDrawing(container, scene, camera) {
             const intersectPoint = new THREE.Vector3();
             raycaster.ray.intersectPlane(hitPlane, intersectPoint);
 
-            if (dragging && draggedShapeIndex !== -1 && intersectPoint) {
-                const newX = intersectPoint.x - dragOffset.x;
-                const newY = intersectPoint.y - dragOffset.y;
+            if (dragging && intersectPoint && (event.buttons & 2)) { 
+                const deltaX = intersectPoint.x - dragStartMouse.x;
+                const deltaY = intersectPoint.y - dragStartMouse.y;
 
-                const currentShapeVertices = drawingHistory[draggedShapeIndex];
-                const deltaX = newX - currentShapeVertices[0].x;
-                const deltaY = newY - currentShapeVertices[0].y;
+                // Apply translation to all shapes in drawingHistory
+                drawingHistory = drawingHistory.map(shapeVertices => {
+                    return shapeVertices.map(v => ({
+                        x: v.x + deltaX,
+                        y: v.y + deltaY
+                    }));
+                });
 
-                drawingHistory[draggedShapeIndex] = currentShapeVertices.map(v => ({
-                    x: v.x + deltaX,
-                    y: v.y + deltaY
-                }));
+                // Update dragStartMouse for continuous dragging
+                dragStartMouse.x = intersectPoint.x;
+                dragStartMouse.y = intersectPoint.y;
+
                 updateAllScenes();
             } else if (isDrawing && intersectPoint) {
                 currentDrawingPoints.push({ x: intersectPoint.x, y: intersectPoint.y });
@@ -338,7 +336,7 @@ function setupFreehandDrawing(container, scene, camera) {
         }
     });
 
-    container.addEventListener('mouseup', () => {
+    container.addEventListener('mouseup', (event) => {
         if (container.id === 'input-canvas') {
             if (isDrawing) {
                 isDrawing = false;
@@ -354,7 +352,6 @@ function setupFreehandDrawing(container, scene, camera) {
                 updateAllScenes();
             } else if (dragging) {
                 dragging = false;
-                draggedShapeIndex = -1;
             }
         }
     });
@@ -375,7 +372,6 @@ function setupFreehandDrawing(container, scene, camera) {
                 updateAllScenes();
             } else if (dragging) {
                 dragging = false;
-                draggedShapeIndex = -1;
             }
         }
     });
@@ -386,8 +382,8 @@ function setupUndoButton() {
     if (undoButton) {
         undoButton.addEventListener('click', () => {
             if (drawingHistory.length > 0) {
-                drawingHistory.pop(); 
-                updateAllScenes(); 
+                drawingHistory.pop();
+                updateAllScenes();
             }
         });
     }
@@ -401,7 +397,7 @@ function updateAllScenes() {
         scenes[canvasId].transformedShapes = [];
     }
 
-    // Redraw all shapes from history in all scenes
+    // Draw all shapes from history in all scenes
     drawingHistory.forEach(shapeVertices => {
         for (const canvasId in scenes) {
             const { scene, transformFunction } = scenes[canvasId];
@@ -415,7 +411,6 @@ function updateAllScenes() {
                     scene.add(addedShape);
                 }
             } else {
-                // For transformed canvases, apply the transformation
                 const transformedVertices = shapeVertices.map(v => transformFunction(v.x, v.y));
                 const validTransformedVertices = transformedVertices.filter(v => !isNaN(v.x) && !isNaN(v.y) && isFinite(v.x) && isFinite(v.y));
 
