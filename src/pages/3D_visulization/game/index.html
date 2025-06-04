@@ -4,12 +4,43 @@
   <meta charset="UTF-8" />
   <title>Physics Track Puzzle</title>
   <style>
-    body { margin: 0; overflow: hidden; }
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
     canvas { display: block; }
+
+    /* Win Message */
+    #winText {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 32px;
+      font-weight: bold;
+      color: #28a745;
+      display: none;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 12px 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      z-index: 10;
+    }
+
+    /* Controls Panel */
+    #controlsHelp {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.65);
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+      z-index: 10;
+    }
+    #controlsHelp b {
+      color: #0f0;
+    }
   </style>
-</head>
-<body>
-  <script type="module" src="main.js"></script>
 
   <!-- Import map -->
   <script type="importmap">
@@ -20,5 +51,24 @@
       }
     }
   </script>
+</head>
+<body>
+
+  <!-- Main game script -->
+  <script type="module" src="main.js"></script>
+
+  <!-- Win Text -->
+  <div id="winText"> You Won!</div>
+
+  <!-- Controls Info -->
+  <div id="controlsHelp">
+    <div><b>A / D</b> – Move ramp left/right</div>
+
+    <div><b>Q / E</b> – Move ramp up/down</div>
+    <!-- <div><b>J / L</b> – Move goal pipe left/right</div> -->
+    <div><b>R</b> – Reset the ball</div>
+    <div><i>Click on ramp to select it</i></div>
+  </div>
+
 </body>
 </html>

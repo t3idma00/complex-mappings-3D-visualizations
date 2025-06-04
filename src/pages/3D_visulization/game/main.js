@@ -1,9 +1,10 @@
-// main.js
 import * as THREE from 'three';
 import { OrbitControls } from 'https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js';
 import * as CANNON from 'cannon-es';
-import { setupKeyControls } from './controls.js';
 import { createRamp, createLaunchRamp } from './track.js';
+
+// Load win sound
+const winSound = new Audio('./winsound.mp3');
 
 // Scene setup
 const scene = new THREE.Scene();
@@ -29,7 +30,7 @@ light.position.set(5, 10, 7.5);
 light.castShadow = true;
 scene.add(light);
 
-// Cannon-es Physics world
+// Physics world
 const world = new CANNON.World({
   gravity: new CANNON.Vec3(0, -9.82, 0)
 });
@@ -51,7 +52,7 @@ const floorBody = new CANNON.Body({
 floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
 world.addBody(floorBody);
 
-// Axis Helper
+// Axis helper
 const worldAxis = new THREE.AxesHelper(2);
 worldAxis.position.set(0, 0.01, 0);
 scene.add(worldAxis);
@@ -59,6 +60,11 @@ scene.add(worldAxis);
 // Launch ramp
 const launchRamp = createLaunchRamp(-3, 8.5, 0, -Math.PI / 12);
 scene.add(launchRamp);
+
+// Globals
+let ballBody;
+let goalScored = false;
+const pipeWalls = [];
 
 // Ball (Three.js)
 const ballGeometry = new THREE.SphereGeometry(0.3, 32, 32);
@@ -69,7 +75,6 @@ ball.receiveShadow = true;
 scene.add(ball);
 
 // Ball (Cannon-es)
-let ballBody;
 function createBall() {
   if (ballBody) world.removeBody(ballBody);
   ballBody = new CANNON.Body({
@@ -78,20 +83,99 @@ function createBall() {
     position: new CANNON.Vec3(-2.2, 8.6, 0),
   });
   world.addBody(ballBody);
+  goalScored = false;
+
+  // Hide "You Won" text
+  const winText = document.getElementById('winText');
+  if (winText) winText.style.display = 'none';
 }
 createBall();
 
-// Goal pipe
-const pipeGeometry = new THREE.CylinderGeometry(0.3, 0.3, 2, 32, 1, true);
+// Pipe (THREE visual)
+const pipeGeometry = new THREE.CylinderGeometry(0.6, 0.6, 1, 32, 1, true);
 const pipeMaterial = new THREE.MeshStandardMaterial({
   color: 0x00cc88,
   transparent: true,
-  opacity: 0.5,
+  opacity: 0.7,
   side: THREE.DoubleSide
 });
 const pipe = new THREE.Mesh(pipeGeometry, pipeMaterial);
 pipe.position.set(13, 0.5, 0);
 scene.add(pipe);
+
+// Pipe body (Cannon trigger)
+const pipeBody = new CANNON.Body({
+  mass: 0,
+  shape: new CANNON.Box(new CANNON.Vec3(0.6, 0.5, 0.6)),
+  position: new CANNON.Vec3(13, 0.5, 0),
+  collisionResponse: false
+});
+world.addBody(pipeBody);
+
+// Pipe floor
+const pipeFloorBody = new CANNON.Body({
+  mass: 0,
+  shape: new CANNON.Cylinder(0.55, 0.55, 0.1, 16),
+  position: new CANNON.Vec3(pipeBody.position.x, pipeBody.position.y - 0.45, pipeBody.position.z),
+});
+world.addBody(pipeFloorBody);
+
+// Pipe walls
+const wallThickness = 0.05;
+const wallHeight = 1;
+const wallRadius = 0.55;
+
+const wallPositions = [
+  { x: wallRadius, z: 0 },
+  { x: -wallRadius, z: 0 },
+  { x: 0, z: wallRadius },
+];
+
+wallPositions.forEach(({ x, z }) => {
+  const wall = new CANNON.Body({
+    mass: 0,
+    shape: new CANNON.Box(new CANNON.Vec3(wallThickness, wallHeight / 2, 0.05)),
+    position: new CANNON.Vec3(pipeBody.position.x + x, pipeBody.position.y, pipeBody.position.z + z),
+  });
+  wall.update = () => {
+    wall.position.set(pipeBody.position.x + x, pipeBody.position.y, pipeBody.position.z + z);
+  };
+  pipeWalls.push(wall);
+  world.addBody(wall);
+});
+
+// Check goal
+function checkGoal() {
+  if (!goalScored && ballBody.position.distanceTo(pipeBody.position) < 0.5) {
+    goalScored = true;
+    console.log("🎯 Ball entered the goal!");
+    winSound.play();
+
+    const winText = document.getElementById('winText');
+    if (winText) winText.style.display = 'block';
+  }
+}
+
+// Pipe Controller (I / J keys)
+const pipeController = (() => {
+  const keys = {};
+  const speed = 0.1;
+
+  document.addEventListener('keydown', (e) => {
+    keys[e.key.toLowerCase()] = true;
+  });
+
+  document.addEventListener('keyup', (e) => {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  function update() {
+    if (keys['j']) pipeBody.position.x -= speed;
+    if (keys['l']) pipeBody.position.x += speed;
+  }
+
+  return { update };
+})();
 
 // Ramps and Controls
 const selectableObjects = [];
@@ -106,7 +190,7 @@ for (let i = 0; i < 5; i++) {
 
   const rampBody = new CANNON.Body({
     mass: 0,
-    type: CANNON.Body.KINEMATIC, // allow manual movement
+    type: CANNON.Body.KINEMATIC,
     shape: new CANNON.Box(new CANNON.Vec3(1, 0.1, 0.5)),
     position: new CANNON.Vec3(x, y, z),
   });
@@ -115,6 +199,7 @@ for (let i = 0; i < 5; i++) {
   rampBodies.push(rampBody);
 }
 
+// Ramp Control Manager
 const controlManager = (() => {
   const keys = {};
   let target = null;
@@ -130,7 +215,6 @@ const controlManager = (() => {
 
   function update() {
     if (!target) return;
-
     if (keys['q']) target.position.y += speed;
     if (keys['e']) target.position.y -= speed;
     if (keys['a']) target.position.x -= speed;
@@ -143,9 +227,9 @@ const controlManager = (() => {
 
   return { update, setTarget };
 })();
-
 controlManager.setTarget(rampBodies[0]);
 
+// Click to select ramp
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 window.addEventListener('click', (event) => {
@@ -160,14 +244,14 @@ window.addEventListener('click', (event) => {
   }
 });
 
-// Reset Button
+// Reset ball
 window.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'r') {
     createBall();
   }
 });
 
-// Animate loop
+// Animate
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
@@ -184,6 +268,17 @@ function animate() {
     selectableObjects[i].quaternion.copy(body.quaternion);
   });
 
+  // Sync pipe
+  pipe.position.copy(pipeBody.position);
+  pipeFloorBody.position.set(
+    pipeBody.position.x,
+    pipeBody.position.y - 0.45,
+    pipeBody.position.z
+  );
+  pipeWalls.forEach(wall => wall.update());
+
+  checkGoal();
+  pipeController.update();
   controlManager.update();
   controls.update();
   renderer.render(scene, camera);

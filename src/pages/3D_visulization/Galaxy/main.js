@@ -23,9 +23,9 @@ const controls = new OrbitControls(camera, renderer.domElement);
 
 // Galaxy ring parameters
 const parameters = {
-  countPerRing: 3000,               // stars per ring
+  countPerRing: 10000,               // stars per ring
   size: 0.025,                      // star size
-  radii: [1.5, 3, 4.5],             // ring center radii
+  radii: [1.5, 3, 3.5],             // ring center radii
   thickness: 0.7                  // how wide each ring appears
 };
 
