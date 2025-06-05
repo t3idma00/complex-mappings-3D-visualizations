@@ -35,7 +35,7 @@ const world = new CANNON.World({
   gravity: new CANNON.Vec3(0, -9.82, 0)
 });
 
-// Floor (Three.js)
+// Floor 
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(40, 20),
   new THREE.MeshStandardMaterial({ color: 0x999999 })
@@ -44,7 +44,7 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-// Floor (Cannon-es)
+// Floor 
 const floorBody = new CANNON.Body({
   mass: 0,
   shape: new CANNON.Plane(),
@@ -74,7 +74,7 @@ ball.castShadow = true;
 ball.receiveShadow = true;
 scene.add(ball);
 
-// Ball (Cannon-es)
+// Ball 
 function createBall() {
   if (ballBody) world.removeBody(ballBody);
   ballBody = new CANNON.Body({
@@ -91,7 +91,7 @@ function createBall() {
 }
 createBall();
 
-// Pipe (THREE visual)
+// Pipe 
 const pipeGeometry = new THREE.CylinderGeometry(0.6, 0.6, 1, 32, 1, true);
 const pipeMaterial = new THREE.MeshStandardMaterial({
   color: 0x00cc88,
@@ -103,7 +103,7 @@ const pipe = new THREE.Mesh(pipeGeometry, pipeMaterial);
 pipe.position.set(13, 0.5, 0);
 scene.add(pipe);
 
-// Pipe body (Cannon trigger)
+// Pipe body 
 const pipeBody = new CANNON.Body({
   mass: 0,
   shape: new CANNON.Box(new CANNON.Vec3(0.6, 0.5, 0.6)),
