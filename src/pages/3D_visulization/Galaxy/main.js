@@ -1,13 +1,15 @@
+// === main.js ===
+
 import * as THREE from 'three';
 import { OrbitControls } from 'https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js';
 import {
   createRingGalaxy,
   createSpiralGalaxy,
   createSolarSystem,
-  updateSolarSystem
+  updateSolarSystem,
+  createTwinklingStars
 } from './models.js';
 
-// Scene setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 30, 60);
@@ -19,7 +21,7 @@ document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-// 🌌 Spiral Galaxy
+// Spiral Galaxy
 const spiralGroup = new THREE.Group();
 spiralGroup.add(createSpiralGalaxy({
   starCount: 15000,
@@ -39,21 +41,24 @@ scene.add(spiralGroup);
 const ringGalaxies = createRingGalaxy({
   countPerRing: 10000,
   size: 0.03,
-  radii: [1.5, 3,3.5],
+  radii: [1.5, 3, 3.5],
   thickness: 0.7,
   colorStart: '#ff6030',
   colorEnd: '#1b3984'
 });
-ringGalaxies.forEach(r => {
+ringGalaxies.forEach((r, i) => {
   r.position.set(30, -5, 20);
-r.rotation.set(180 * Math.PI / 180, 0, 0);
-scene.add(r);
+  r.rotation.set(Math.PI, 0, 0);
+  scene.add(r);
 });
 
-//  Solar System at center
+// Solar System
 const solarSystem = createSolarSystem(scene);
 
-// Animation loop
+// Twinkling Stars
+const starField = createTwinklingStars(4000, 300);
+scene.add(starField);
+
 function animate() {
   requestAnimationFrame(animate);
 
@@ -61,6 +66,13 @@ function animate() {
   ringGalaxies.forEach((r, i) => r.rotation.y += 0.0008 / (i + 1));
 
   updateSolarSystem(solarSystem);
+
+  const alphaAttr = starField.userData.alphaAttr;
+  for (let i = 0; i < alphaAttr.count; i++) {
+    const alpha = 0.5 + 0.5 * Math.sin(Date.now() * 0.001 + i * 0.5);
+    alphaAttr.setX(i, alpha);
+  }
+  alphaAttr.needsUpdate = true;
 
   controls.update();
   renderer.render(scene, camera);
