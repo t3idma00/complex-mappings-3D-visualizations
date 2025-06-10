@@ -2,20 +2,47 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Spiral Galaxy</title>
+  <title>Interactive Solar System</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
+    #popup {
+      position: absolute;
+      top: 20px; left: 20px;
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-family: sans-serif;
+      font-size: 14px;
+      max-width: 300px;
+      line-height: 1.4;
+      z-index: 999;
+      display: none;
+    }
+    #dateDisplay {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-family: sans-serif;
+      font-size: 16px;
+      z-index: 1000;
+    }
   </style>
   <script type="importmap">
     {
       "imports": {
-        "three": "https://unpkg.com/three@0.158.0/build/three.module.js"
+        "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+        "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js"
       }
     }
   </script>
 </head>
 <body>
+  <div id="dateDisplay"></div>
+  <div id="popup"></div>
   <script type="module" src="main.js"></script>
 </body>
 </html>

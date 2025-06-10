@@ -1,6 +1,5 @@
-// === models.js ===
-
 import * as THREE from 'three';
+
 const textureLoader = new THREE.TextureLoader();
 
 export function createRingGalaxy({ countPerRing, size, radii, thickness, colorStart, colorEnd }) {
@@ -102,14 +101,18 @@ export function createSolarSystem(scene) {
   const objects = {};
   scene.add(new THREE.AmbientLight(0xffffff, 0.6));
   scene.add(new THREE.HemisphereLight(0xffffff, 0x222222, 0.5));
+
   const sunTexture = textureLoader.load('./asset/2k_sun.jpg');
   const sunMaterial = new THREE.MeshBasicMaterial({ map: sunTexture });
   const sun = new THREE.Mesh(new THREE.SphereGeometry(5, 32, 32), sunMaterial);
+  sun.name = 'sun';
   scene.add(sun);
+
   const sunlight = new THREE.PointLight(0xffffff, 2, 500);
   sunlight.position.set(0, 0, 0);
   scene.add(sunlight);
   objects.sun = sun;
+
   const baseSpeed = 0.01;
   const planetData = [
     { name: 'mercury', texture: '2k_mercury.jpg', size: 0.6, orbit: 8 },
@@ -121,17 +124,15 @@ export function createSolarSystem(scene) {
     { name: 'uranus', texture: '2k_uranus.jpg', size: 1.5, orbit: 38 },
     { name: 'neptune', texture: '2k_neptune.jpg', size: 1.5, orbit: 44 }
   ];
+
   for (const planet of planetData) {
     const geometry = new THREE.SphereGeometry(planet.size, 32, 32);
     const texture = textureLoader.load(`./asset/${planet.texture}`);
-    const material = new THREE.MeshStandardMaterial({
-      map: texture,
-      emissive: 0x000000,
-      emissiveIntensity: 0.1
-    });
+    const material = new THREE.MeshStandardMaterial({ map: texture });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = planet.name;
     scene.add(mesh);
+
     const speed = baseSpeed / Math.sqrt(planet.orbit);
     objects[planet.name] = mesh;
     objects[`${planet.name}Orbit`] = planet.orbit;
@@ -153,4 +154,39 @@ export function updateSolarSystem(objects) {
     mesh.position.set(Math.cos(objects[angleKey]) * r, 0, Math.sin(objects[angleKey]) * r);
     mesh.rotation.y += 0.01;
   }
+}
+
+export function createSpacecraft() {
+  const body = new THREE.Mesh(
+    new THREE.ConeGeometry(0.5, 2, 16),
+    new THREE.MeshStandardMaterial({ color: 0xcccccc })
+  );
+
+  const cockpit = new THREE.Mesh(
+    new THREE.SphereGeometry(0.4, 16, 16),
+    new THREE.MeshStandardMaterial({ color: 0x3333ff })
+  );
+  cockpit.position.set(0, 1, 0);
+
+  const wingGeometry = new THREE.PlaneGeometry(1.5, 0.5);
+  const wingMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, side: THREE.DoubleSide });
+
+  const wingLeft = new THREE.Mesh(wingGeometry, wingMaterial);
+  wingLeft.rotation.set(0.3, 0, Math.PI / 2);
+  wingLeft.position.set(-0.7, 0.3, -0.2);
+
+  const wingRight = wingLeft.clone();
+  wingRight.position.set(0.7, 0.3, -0.2);
+
+  const spacecraft = new THREE.Group();
+  spacecraft.name = 'spacecraft';
+  spacecraft.add(body, cockpit, wingLeft, wingRight);
+
+  [body, cockpit, wingLeft, wingRight].forEach(part => {
+    part.userData.parentGroup = spacecraft;
+  });
+
+  spacecraft.rotation.x = Math.PI / 2;
+  spacecraft.position.set(0, 5, -50);
+  return spacecraft;
 }
