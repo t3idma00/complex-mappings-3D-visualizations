@@ -9,8 +9,9 @@ const CONFIG = {
     AXIS_WIDTH: 2,
     MINOR_GRID_OPACITY: 0.6,
     TRANSFORMED_GRID_OPACITY: 0.8,
-    POINT_SIZE: 8,
-    GRID_DENSITY: 10
+    POINT_SIZE: 6,
+    GRID_DENSITY: 200
+
 };
 
 // Global variables to store scene data and drag state
@@ -160,7 +161,7 @@ function addTransformedGrid(scene, transform, containerId) {
             pointsData['input-canvas'] = [];
             let startX = 1;
             let startY = 1;
-            const pointSpacing = 0.25;
+            const pointSpacing = 0.1;
             for (let i = 0; i < CONFIG.GRID_DENSITY; i++) {
                 for (let j = 0; j < CONFIG.GRID_DENSITY; j++) {
                     const x = startX + i * pointSpacing;
