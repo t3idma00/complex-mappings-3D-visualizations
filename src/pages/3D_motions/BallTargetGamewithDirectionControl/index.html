@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ball Target Game with Direction Control</title>
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      font-family: Arial, sans-serif;
+      touch-action: none;
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      pointer-events: none;
+    }
+    #game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      display: none;
+      pointer-events: auto;
+    }
+    #restart-btn {
+      background: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 10px 2px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    #direction-indicator {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      text-align: center;
+    }
+    #power-meter {
+      width: 100%;
+      height: 20px;
+      background: linear-gradient(to right, #00ff00, #ffff00, #ff0000);
+      margin-top: 5px;
+      border-radius: 3px;
+      display: none;
+    }
+    #power-level {
+      height: 100%;
+      width: 0%;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <div>Hits: <span id="score">0</span></div>
+    <div>Balls: <span id="balls-left">5</span></div>
+    <div>Time: <span id="time">30</span>s</div>
+  </div>
+  
+  <div id="game-over">
+    <h2>Game Over!</h2>
+    <p>Your score: <span id="final-score">0</span></p>
+    <button id="restart-btn">Play Again</button>
+  </div>
+
+  <div id="direction-indicator">
+    <div>Drag to aim, release to shoot</div>
+    <div>Angle: <span id="angle-display">0</span>°</div>
+    <div id="power-meter">
+      <div id="power-level"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js"></script>
+
+  <script>
+    // Game constants
+    const GAME_DURATION = 30; // seconds
+    const BALL_LIMIT = 5;
+    const TARGET_COUNT = 8;
+    const MAX_POWER = 25;
+    const MAX_ANGLE = 45; // degrees
+    
+    // Game state
+    let score = 0;
+    let ballsLeft = BALL_LIMIT;
+    let timeLeft = GAME_DURATION;
+    let gameActive = true;
+    let isAiming = false;
+    let startX = 0;
+    let currentAngle = 0;
+    let power = 0;
+    let powerMeterInterval = null;
+
+    // THREE.js scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB); // Sky blue background
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 100);
+    camera.position.set(0, 5, 10);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    // Cannon world
+    const world = new CANNON.World({
+      gravity: new CANNON.Vec3(0, -9.82, 0)
+    });
+
+    // Materials
+    const groundMaterial = new CANNON.Material("ground");
+    const ballMaterial = new CANNON.Material("ball");
+    const targetMaterial = new CANNON.Material("target");
+    
+    // Contact materials
+    world.addContactMaterial(
+      new CANNON.ContactMaterial(groundMaterial, ballMaterial, {
+        restitution: 0.7,
+        friction: 0.3
+      })
+    );
+    
+    world.addContactMaterial(
+      new CANNON.ContactMaterial(targetMaterial, ballMaterial, {
+        restitution: 0.9,
+        friction: 0.1
+      })
+    );
+
+    // Ground
+    const groundBody = new CANNON.Body({
+      mass: 0,
+      shape: new CANNON.Plane(),
+      material: groundMaterial
+    });
+    groundBody.quaternion.setFromEuler(-Math.PI/2, 0, 0);
+    world.addBody(groundBody);
+
+    const groundMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(30, 30),
+      new THREE.MeshStandardMaterial({ 
+        color: 0x3a5f0b, 
+        side: THREE.DoubleSide,
+        roughness: 0.8
+      })
+    );
+    groundMesh.rotation.x = -Math.PI / 2;
+    groundMesh.receiveShadow = true;
+    scene.add(groundMesh);
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 10, 7.5);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    scene.add(directionalLight);
+
+    // Ball pool
+    const balls = [];
+    const ballMeshes = [];
+    const ballGeometry = new THREE.SphereGeometry(0.4, 32, 32);
+    const ballMaterial3D = new THREE.MeshStandardMaterial({ 
+      color: 0xffff00,
+      roughness: 0.2,
+      metalness: 0.3
+    });
+
+    for (let i = 0; i < BALL_LIMIT; i++) {
+      const ballBody = new CANNON.Body({
+        mass: 1,
+        shape: new CANNON.Sphere(0.4),
+        position: new CANNON.Vec3(0, -10, 0), // Start off-screen
+        material: ballMaterial,
+        linearDamping: 0.2,
+        angularDamping: 0.2
+      });
+      world.addBody(ballBody);
+      balls.push(ballBody);
+
+      const ballMesh = new THREE.Mesh(ballGeometry, ballMaterial3D.clone());
+      ballMesh.castShadow = true;
+      ballMesh.receiveShadow = true;
+      scene.add(ballMesh);
+      ballMeshes.push(ballMesh);
+    }
+
+    // Targets
+    const targets = [];
+    const targetGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const targetMaterial3D = new THREE.MeshStandardMaterial({ 
+      color: 0xff0000,
+      roughness: 0.5
+    });
+
+    // Create targets in a grid
+    const gridSize = Math.ceil(Math.sqrt(TARGET_COUNT));
+    for (let i = 0; i < TARGET_COUNT; i++) {
+      const row = Math.floor(i / gridSize);
+      const col = i % gridSize;
+      
+      const x = -gridSize + col * 2;
+      const z = -5 - row * 2;
+      
+      const targetMesh = new THREE.Mesh(targetGeometry, targetMaterial3D.clone());
+      targetMesh.position.set(x, 0.5, z);
+      targetMesh.castShadow = true;
+      targetMesh.receiveShadow = true;
+      scene.add(targetMesh);
+
+      const targetBody = new CANNON.Body({
+        mass: 0,
+        shape: new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5)),
+        position: new CANNON.Vec3(x, 0.5, z),
+        material: targetMaterial
+      });
+      world.addBody(targetBody);
+
+      targets.push({ 
+        body: targetBody, 
+        mesh: targetMesh, 
+        hit: false,
+        originalColor: targetMesh.material.color.clone() 
+      });
+    }
+
+    // Walls to keep balls in play area
+    const wallThickness = 0.5;
+    const wallHeight = 2;
+    const wallLength = 30;
+    
+    // Left wall
+    const leftWall = new CANNON.Body({
+      mass: 0,
+      shape: new CANNON.Box(new CANNON.Vec3(wallThickness, wallHeight, wallLength)),
+      position: new CANNON.Vec3(-15, wallHeight, 0)
+    });
+    world.addBody(leftWall);
+    
+    // Right wall
+    const rightWall = new CANNON.Body({
+      mass: 0,
+      shape: new CANNON.Box(new CANNON.Vec3(wallThickness, wallHeight, wallLength)),
+      position: new CANNON.Vec3(15, wallHeight, 0)
+    });
+    world.addBody(rightWall);
+    
+    // Back wall
+    const backWall = new CANNON.Body({
+      mass: 0,
+      shape: new CANNON.Box(new CANNON.Vec3(wallLength, wallHeight, wallThickness)),
+      position: new CANNON.Vec3(0, wallHeight, -15)
+    });
+    world.addBody(backWall);
+
+    // UI elements
+    const scoreDisplay = document.getElementById('score');
+    const ballsDisplay = document.getElementById('balls-left');
+    const timeDisplay = document.getElementById('time');
+    const gameOverDisplay = document.getElementById('game-over');
+    const finalScoreDisplay = document.getElementById('final-score');
+    const restartBtn = document.getElementById('restart-btn');
+    const angleDisplay = document.getElementById('angle-display');
+    const powerMeter = document.getElementById('power-meter');
+    const powerLevel = document.getElementById('power-level');
+
+    // Update UI
+    function updateUI() {
+      scoreDisplay.textContent = score;
+      ballsDisplay.textContent = ballsLeft;
+      timeDisplay.textContent = timeLeft;
+      angleDisplay.textContent = Math.round(currentAngle);
+    }
+
+    // Collision detection
+    world.addEventListener('postStep', () => {
+      for (let i = 0; i < balls.length; i++) {
+        if (balls[i].position.y < -5) {
+          // Reset ball if it falls below ground
+          resetBall(balls[i]);
+        }
+      }
+    });
+
+    function checkCollisions() {
+      for (let i = 0; i < balls.length; i++) {
+        for (let j = 0; j < targets.length; j++) {
+          if (!targets[j].hit && checkCollision(balls[i], targets[j].body)) {
+            targets[j].hit = true;
+            score++;
+            targets[j].mesh.material.color.set(0x00ff00);
+            updateUI();
+          }
+        }
+      }
+    }
+
+    function checkCollision(body1, body2) {
+      const distance = body1.position.distanceTo(body2.position);
+      const radius1 = body1.shapes[0].radius || 0;
+      const radius2 = body2.shapes[0].radius || 0;
+      const size1 = body1.shapes[0].boundingSphereRadius || 0;
+      const size2 = body2.shapes[0].boundingSphereRadius || 0;
+      
+      return distance < (radius1 + radius2 + size1 + size2);
+    }
+
+    // Ball management
+    function getAvailableBall() {
+      for (let i = 0; i < balls.length; i++) {
+        if (balls[i].position.y < -5) { // Ball is off-screen
+          return i;
+        }
+      }
+      return -1;
+    }
+
+    function resetBall(ball) {
+      ball.position.set(0, -10, 0);
+      ball.velocity.set(0, 0, 0);
+      ball.angularVelocity.set(0, 0, 0);
+    }
+
+    function launchBall(angle, power) {
+      if (!gameActive || ballsLeft <= 0) return;
+      
+      const ballIndex = getAvailableBall();
+      if (ballIndex === -1) return;
+      
+      ballsLeft--;
+      updateUI();
+      
+      const ball = balls[ballIndex];
+      ball.position.set(0, 1, 2);
+      ball.velocity.set(0, 0, 0);
+      ball.angularVelocity.set(0, 0, 0);
+      
+      // Convert angle to radians
+      const angleRad = angle * Math.PI / 180;
+      
+      // Calculate direction vector based on angle
+      const x = Math.sin(angleRad) * power;
+      const z = -Math.cos(angleRad) * power;
+      
+      ball.applyImpulse(
+        new CANNON.Vec3(x, 0, z),
+        new CANNON.Vec3(0, 0, 0)
+      );
+    }
+
+    // Game timer
+    function updateTimer() {
+      if (!gameActive) return;
+      
+      timeLeft--;
+      updateUI();
+      
+      if (timeLeft <= 0) {
+        endGame();
+      }
+    }
+
+    // Game state management
+    function endGame() {
+      gameActive = false;
+      finalScoreDisplay.textContent = score;
+      gameOverDisplay.style.display = 'block';
+    }
+
+    function resetGame() {
+      // Reset game state
+      score = 0;
+      ballsLeft = BALL_LIMIT;
+      timeLeft = GAME_DURATION;
+      gameActive = true;
+      
+      // Reset targets
+      for (let i = 0; i < targets.length; i++) {
+        targets[i].hit = false;
+        targets[i].mesh.material.color.copy(targets[i].originalColor);
+      }
+      
+      // Reset balls
+      for (let i = 0; i < balls.length; i++) {
+        resetBall(balls[i]);
+      }
+      
+      // Update UI
+      updateUI();
+      gameOverDisplay.style.display = 'none';
+    }
+
+    // Input handling
+    function startAim(e) {
+      if (!gameActive || ballsLeft <= 0) return;
+      
+      isAiming = true;
+      startX = e.clientX || e.touches[0].clientX;
+      currentAngle = 0;
+      power = 0;
+      
+      // Show power meter
+      powerMeter.style.display = 'block';
+      powerLevel.style.width = '0%';
+      
+      // Start power meter animation
+      let increasing = true;
+      powerMeterInterval = setInterval(() => {
+        if (increasing) {
+          power += 0.5;
+          if (power >= MAX_POWER) increasing = false;
+        } else {
+          power -= 0.5;
+          if (power <= 5) increasing = true;
+        }
+        powerLevel.style.width = (power / MAX_POWER * 100) + '%';
+      }, 20);
+    }
+
+    function updateAim(e) {
+      if (!isAiming) return;
+      
+      const currentX = e.clientX || e.touches[0].clientX;
+      const deltaX = currentX - startX;
+      
+      // Calculate angle based on mouse/touch movement
+      // Max angle is limited to MAX_ANGLE degrees
+      currentAngle = Math.min(MAX_ANGLE, Math.max(-MAX_ANGLE, deltaX * 0.2));
+      updateUI();
+    }
+
+    function endAim() {
+      if (!isAiming) return;
+      
+      isAiming = false;
+      
+      // Stop power meter animation
+      clearInterval(powerMeterInterval);
+      powerMeter.style.display = 'none';
+      
+      // Launch ball with current angle and power
+      launchBall(currentAngle, power);
+    }
+
+    // Event listeners
+    window.addEventListener('mousedown', startAim);
+    window.addEventListener('mousemove', updateAim);
+    window.addEventListener('mouseup', endAim);
+    
+    window.addEventListener('touchstart', startAim);
+    window.addEventListener('touchmove', updateAim);
+    window.addEventListener('touchend', endAim);
+    
+    restartBtn.addEventListener('click', resetGame);
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Start game timer
+    const timer = setInterval(updateTimer, 1000);
+
+    // Animate
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      
+      if (gameActive) {
+        world.step(1 / 60, delta);
+        checkCollisions();
+      }
+
+      // Sync meshes
+      for (let i = 0; i < balls.length; i++) {
+        ballMeshes[i].position.copy(balls[i].position);
+        ballMeshes[i].quaternion.copy(balls[i].quaternion);
+      }
+      
+      for (let i = 0; i < targets.length; i++) {
+        targets[i].mesh.position.copy(targets[i].body.position);
+        targets[i].mesh.quaternion.copy(targets[i].body.quaternion);
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Initialize UI
+    updateUI();
+    animate();
+  </script>
+</body>
+</html>

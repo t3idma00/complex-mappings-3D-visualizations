@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Cannon Ball Game</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: Arial, sans-serif;
+        }
+        canvas { 
+            display: block; 
+        }
+        #ui-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 300px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            display: none;
+            z-index: 100;
+        }
+        #controls-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        #calculations-panel {
+            position: absolute;
+            top: 150px;  
+            left: 10px;
+            width: 320px;
+            max-height: 300px; 
+            overflow-y: auto;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            z-index: 100;
+        }
+        #camera-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+        .formula {
+            font-family: monospace;
+            background: rgba(255,255,255,0.2);
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin: 3px 0;
+            font-size: 0.9em;
+        }
+        hr {
+            margin: 5px 0;
+            border: 0;
+            height: 1px;
+            background: rgba(255,255,255,0.2);
+        }
+        button {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 5px 10px;
+            margin: 2px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        button:active {
+            background: rgba(255,255,255,0.4);
+        }
+        #environment-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-panel">
+        <h2>Enhanced Cannon Ball Game</h2>
+        <div>Angle: <span id="angle-display">45</span>°</div>
+        <div>Distance to target: <span id="distance-display">30</span>m</div>
+        <div>Shots fired: <span id="shots-display">0</span></div>
+        <div>Hits: <span id="hits-display">0</span></div>
+        <div>Camera Position: <span id="camera-position">0,0,0</span></div>
+        <div>Camera Mode: <span id="camera-mode">Free</span></div>
+    </div>
+    
+    <div id="controls-info">
+        <strong>Controls:</strong><br>
+        ↑/↓: Adjust angle<br>
+        Space: Fire<br>
+        WASD: Move camera<br>
+        Q/E: Move up/down<br>
+        R: Reset camera<br>
+        C: Toggle camera mode (Free/Orbit)<br>
+        Click: Show calculations<br>
+        T: Toggle day/night
+    </div>
+    
+    <div id="calculations-panel">
+        <h3 style="margin-top: 0; margin-bottom: 20px;">Projectile Physics</h3>
+        <div id="calculation-steps"></div>
+    </div>
+
+    <div id="message"></div>
+    
+    <div id="environment-controls">
+        <button id="toggle-daynight">Toggle Day/Night</button>
+        <button id="toggle-sound">Toggle Sound</button>
+    </div>
+    
+    <div id="camera-info">
+        Camera FOV: <span id="cam-fov">75</span>°<br>
+        Move Speed: <span id="move-speed">5</span>
+    </div>
+
+    <!-- Sound elements -->
+    <audio id="fire-sound" src="https://assets.codepen.io/21542/cannon-fire.mp3" preload="auto"></audio>
+    <audio id="hit-sound" src="https://assets.codepen.io/21542/explosion.mp3" preload="auto"></audio>
+    <audio id="background-sound" src="https://assets.codepen.io/21542/forest-ambient.mp3" loop preload="auto"></audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script>
+        // Game configuration
+        const config = {
+            cannonPower: 20,
+            targetSize: 2,
+            targetDistance: 30,
+            ballRadius: 0.3,
+            gravity: -9.81,
+            cannonPositionX: -15,
+            minFOV: 30,
+            maxFOV: 100,
+            minAngle: 10,
+            maxAngle: 80,
+            angleStep: 1,
+            cameraDistance: 30,
+            bounceDamping: 0.6, // Energy retained after bounce
+            moveSpeed: 5,
+            rotationSpeed: 0.005
+        };
+
+        // Game state
+        const gameState = {
+            angle: 45,
+            shots: 0,
+            hits: 0,
+            isFiring: false,
+            showCalculations: false,
+            cameraMode: 'free', // 'free' or 'orbit'
+            isDay: true,
+            soundEnabled: true,
+            targets: []
+        };
+
+        // Initialize Three.js
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        // Sound setup
+        const sounds = {
+            fire: document.getElementById('fire-sound'),
+            hit: document.getElementById('hit-sound'),
+            background: document.getElementById('background-sound')
+        };
+
+        function playSound(sound) {
+            if (!gameState.soundEnabled) return;
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log("Sound play failed:", e));
+        }
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(10, 20, 10);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        directionalLight.shadow.camera.near = 0.5;
+        directionalLight.shadow.camera.far = 500;
+        directionalLight.shadow.camera.left = -50;
+        directionalLight.shadow.camera.right = 50;
+        directionalLight.shadow.camera.top = 50;
+        directionalLight.shadow.camera.bottom = -50;
+        scene.add(directionalLight);
+
+        // Create ground with texture
+        const groundGeometry = new THREE.PlaneGeometry(200, 200);
+        const groundTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
+        groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+        groundTexture.repeat.set(10, 10);
+        const groundMaterial = new THREE.MeshStandardMaterial({ 
+            map: groundTexture,
+            roughness: 0.8
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Create cannon
+        function createCannon() {
+            const cannonGroup = new THREE.Group();
+            cannonGroup.position.set(config.cannonPositionX, 0, 0);
+            
+            // Cannon base (carriage)
+            const baseGeometry = new THREE.BoxGeometry(1.5, 0.3, 1);
+            const baseMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x333333,
+                metalness: 0.7,
+                roughness: 0.5
+            });
+            const cannonBase = new THREE.Mesh(baseGeometry, baseMaterial);
+            cannonBase.position.set(0, 0.15, 0);
+            cannonBase.castShadow = true;
+            
+            // Cannon barrel (tapered)
+            const barrelLength = 2.5;
+            const barrelGeometry = new THREE.CylinderGeometry(0.15, 0.25, barrelLength, 32, 1, true);
+            const barrelMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x555555,
+                metalness: 0.8,
+                roughness: 0.3
+            });
+            const cannonBarrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
+            cannonBarrel.position.set(0, 0.3, 0);
+            cannonBarrel.rotation.z = -Math.PI / 2;
+            cannonBarrel.castShadow = true;
+            
+            // Barrel details (rings)
+            const ringGeometry = new THREE.TorusGeometry(0.2, 0.03, 16, 32);
+            const ringMaterial = new THREE.MeshStandardMaterial({ color: 0x777777 });
+            for (let i = 0; i < 3; i++) {
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.position.set(-0.5 + i * 0.8, 0.3, 0);
+                ring.rotation.z = Math.PI / 2;
+                cannonGroup.add(ring);
+            }
+            
+            // Wheels
+            const wheelMaterial = new THREE.MeshStandardMaterial({
+                color: 0x222222,
+                metalness: 0.5,
+                roughness: 0.7
+            });
+            const wheelGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 32);
+            
+            const leftWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            leftWheel.position.set(0.5, 0.15, 0.6);
+            leftWheel.rotation.z = Math.PI / 2;
+            
+            const rightWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            rightWheel.position.set(0.5, 0.15, -0.6);
+            rightWheel.rotation.z = Math.PI / 2;
+            
+            // Wheel details (spokes)
+            const spokeMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
+            const spokeGeometry = new THREE.BoxGeometry(0.02, 0.3, 0.02);
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const spoke = new THREE.Mesh(spokeGeometry, spokeMaterial);
+                spoke.position.set(0.5, 0.15, 0.6);
+                spoke.rotation.z = angle;
+                spoke.rotation.y = Math.PI / 2;
+                cannonGroup.add(spoke.clone());
+                
+                const spoke2 = spoke.clone();
+                spoke2.position.z = -0.6;
+                cannonGroup.add(spoke2);
+            }
+            
+            // Cannon support
+            const supportGeometry = new THREE.BoxGeometry(0.1, 0.5, 0.8);
+            const supportMaterial = new THREE.MeshStandardMaterial({ color: 0x3a3a3a });
+            const leftSupport = new THREE.Mesh(supportGeometry, supportMaterial);
+            leftSupport.position.set(-0.3, 0.25, 0.4);
+            
+            const rightSupport = new THREE.Mesh(supportGeometry, supportMaterial);
+            rightSupport.position.set(-0.3, 0.25, -0.4);
+            
+            // Add all parts to the group
+            cannonGroup.add(cannonBase);
+            cannonGroup.add(cannonBarrel);
+            cannonGroup.add(leftWheel);
+            cannonGroup.add(rightWheel);
+            cannonGroup.add(leftSupport);
+            cannonGroup.add(rightSupport);
+            
+            return {
+                group: cannonGroup,
+                barrel: cannonBarrel,
+                barrelLength: barrelLength
+            };
+        }
+
+        const cannon = createCannon();
+        scene.add(cannon.group);
+
+        // Create targets
+        function createTarget(x, z, color = 0xff6961) {
+            const target = new THREE.Mesh(
+                new THREE.BoxGeometry(config.targetSize, config.targetSize, 0.1),
+                new THREE.MeshStandardMaterial({ color })
+            );
+            target.position.set(x, config.targetSize/2, z);
+            target.castShadow = true;
+            target.userData.isTarget = true;
+            scene.add(target);
+            gameState.targets.push(target);
+            return target;
+        }
+
+        // Create multiple targets at different positions
+        createTarget(config.cannonPositionX + 30, 0); // Main target
+        createTarget(config.cannonPositionX + 50, -10, 0x61ff69); // Green target
+        createTarget(config.cannonPositionX + 40, 15, 0x6169ff); // Blue target
+        createTarget(config.cannonPositionX + 60, 5, 0xff61f7); // Pink target
+
+        // Create buildings
+        function createBuilding(x, z, width, depth, height, color = 0x8B4513) {
+            const building = new THREE.Mesh(
+                new THREE.BoxGeometry(width, height, depth),
+                new THREE.MeshStandardMaterial({ color })
+            );
+            building.position.set(x, height/2, z);
+            building.castShadow = true;
+            building.receiveShadow = true;
+            building.userData.isObstacle = true;
+            scene.add(building);
+            return building;
+        }
+
+        // Add some buildings
+        createBuilding(config.cannonPositionX + 20, 8, 5, 5, 8);
+        createBuilding(config.cannonPositionX + 35, -12, 6, 4, 10, 0x708090);
+        createBuilding(config.cannonPositionX + 55, 0, 8, 8, 12, 0xA0522D);
+
+        // Create trees
+        function createTree(x, z) {
+            const treeGroup = new THREE.Group();
+            treeGroup.position.set(x, 0, z);
+            
+            // Trunk
+            const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.4, 2, 8);
+            const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+            trunk.position.y = 1;
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+            
+            // Leaves
+            const leavesGeometry = new THREE.SphereGeometry(1.5, 16, 16);
+            const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+            const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+            leaves.position.y = 3;
+            leaves.castShadow = true;
+            leaves.receiveShadow = true;
+            
+            treeGroup.add(trunk);
+            treeGroup.add(leaves);
+            treeGroup.userData.isObstacle = true;
+            scene.add(treeGroup);
+            return treeGroup;
+        }
+
+        // Add some trees
+        createTree(config.cannonPositionX + 15, -5);
+        createTree(config.cannonPositionX + 25, 5);
+        createTree(config.cannonPositionX + 45, -8);
+        createTree(config.cannonPositionX + 65, 10);
+
+        // Create ball
+        const ballGeometry = new THREE.SphereGeometry(config.ballRadius, 32, 32);
+        const ballMaterial = new THREE.MeshStandardMaterial({ color: 0x990000 });
+        const ball = new THREE.Mesh(ballGeometry, ballMaterial);
+        ball.castShadow = true;
+        ball.visible = false;
+        scene.add(ball);
+
+        // Camera control variables
+        const cameraControls = {
+            moveForward: false,
+            moveBackward: false,
+            moveLeft: false,
+            moveRight: false,
+            moveUp: false,
+            moveDown: false,
+            rotateLeft: false,
+            rotateRight: false,
+            rotateUp: false,
+            rotateDown: false,
+            velocity: new THREE.Vector3(),
+            rotation: new THREE.Vector2()
+        };
+
+        // Camera control functions
+        function setFreeCamera() {
+            camera.position.set(0, 10, 20);
+            camera.lookAt(0, 0, 0);
+            gameState.cameraMode = 'free';
+            updateCameraUI();
+        }
+
+        function setOrbitCamera() {
+            camera.position.set(
+                config.cannonPositionX/2, 
+                10, 
+                config.cameraDistance
+            );
+            camera.lookAt(config.cannonPositionX/2, 0, 0);
+            gameState.cameraMode = 'orbit';
+            updateCameraUI();
+        }
+
+        function toggleCameraMode() {
+            if (gameState.cameraMode === 'free') {
+                setOrbitCamera();
+            } else {
+                setFreeCamera();
+            }
+        }
+
+        function updateCameraUI() {
+            document.getElementById('camera-mode').textContent = 
+                gameState.cameraMode.charAt(0).toUpperCase() + gameState.cameraMode.slice(1);
+            updateCameraPositionDisplay();
+        }
+
+        function updateCameraPositionDisplay() {
+            document.getElementById('camera-position').textContent = 
+                `${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)}`;
+        }
+
+        function updateAngleDisplay() {
+            document.getElementById('angle-display').textContent = Math.round(gameState.angle);
+            cannon.barrel.rotation.z = -gameState.angle * Math.PI / 180;
+        }
+
+        function adjustAngle(change) {
+            gameState.angle = Math.max(
+                config.minAngle,
+                Math.min(config.maxAngle, gameState.angle + change)
+            );
+            updateAngleDisplay();
+            
+            if (gameState.showCalculations) {
+                showCalculations();
+            }
+        }
+
+        // Physics state
+        const physics = {
+            velocityX: 0,
+            velocityY: 0,
+            velocityZ: 0,
+            ballActive: false,
+            update: function(deltaTime) {
+                if (!this.ballActive) return;
+                
+                const deltaSeconds = deltaTime / 1000;
+                this.velocityY += config.gravity * deltaSeconds;
+                
+                // Store previous position for collision detection
+                const prevPos = ball.position.clone();
+                
+                // Update position
+                ball.position.x += this.velocityX * deltaSeconds;
+                ball.position.y += this.velocityY * deltaSeconds;
+                ball.position.z += this.velocityZ * deltaSeconds;
+                
+                // Check for collisions with targets and obstacles
+                const ballBB = new THREE.Sphere(ball.position, config.ballRadius);
+                
+                // Check targets
+                for (const target of gameState.targets) {
+                    if (!target.visible) continue;
+                    
+                    const targetBB = new THREE.Box3().setFromObject(target);
+                    if (ballBB.intersectsBox(targetBB)) {
+                        target.visible = false;
+                        gameState.hits++;
+                        document.getElementById('hits-display').textContent = gameState.hits;
+                        playSound(sounds.hit);
+                        showMessage("Target Hit!", 2000);
+                        
+                        // Add some bounce effect
+                        this.velocityY = Math.abs(this.velocityY) * config.bounceDamping;
+                        this.velocityX *= config.bounceDamping;
+                        this.velocityZ *= config.bounceDamping;
+                        
+                        break;
+                    }
+                }
+                
+                // Check for ground collision
+                if (ball.position.y <= config.ballRadius) {
+                    ball.position.y = config.ballRadius;
+                    
+                    // Bounce if velocity is significant
+                    if (Math.abs(this.velocityY) > 1) {
+                        this.velocityY = -this.velocityY * config.bounceDamping;
+                        this.velocityX *= config.bounceDamping;
+                        this.velocityZ *= config.bounceDamping;
+                    } else {
+                        // Stop if velocity is small
+                        this.ballActive = false;
+                        ball.visible = false;
+                        gameState.isFiring = false;
+                    }
+                }
+                
+                // Check for out of bounds
+                if (ball.position.x > 100 || ball.position.x < -100 || 
+                    ball.position.y < -10 || 
+                    ball.position.z > 100 || ball.position.z < -100) {
+                    this.ballActive = false;
+                    ball.visible = false;
+                    gameState.isFiring = false;
+                }
+            },
+            fire: function() {
+                const radians = gameState.angle * Math.PI / 180;
+                this.velocityX = config.cannonPower * Math.cos(radians);
+                this.velocityY = config.cannonPower * Math.sin(radians);
+                this.velocityZ = 0; // Reset Z velocity
+                
+                // Position ball at end of barrel
+                ball.position.set(
+                    config.cannonPositionX + Math.cos(radians) * cannon.barrelLength,
+                    config.ballRadius + Math.sin(radians) * cannon.barrelLength,
+                    0
+                );
+                ball.visible = true;
+                this.ballActive = true;
+                
+                gameState.shots++;
+                document.getElementById('shots-display').textContent = gameState.shots;
+                gameState.isFiring = true;
+                
+                playSound(sounds.fire);
+            },
+            calculateTrajectory: function() {
+                const radians = gameState.angle * Math.PI / 180;
+                const v0 = config.cannonPower;
+                const g = -config.gravity;
+                const v0x = v0 * Math.cos(radians);
+                const v0y = v0 * Math.sin(radians);
+                
+                const t_flight = (2 * v0y) / g;
+                const h_max = (v0y * v0y) / (2 * g);
+                const distance = v0x * t_flight;
+                
+                return {
+                    initialVelocity: v0,
+                    angle: gameState.angle,
+                    velocityX: v0x.toFixed(2),
+                    velocityY: v0y.toFixed(2),
+                    timeOfFlight: t_flight.toFixed(2),
+                    maxHeight: h_max.toFixed(2),
+                    distance: distance.toFixed(2),
+                    targetDistance: config.targetDistance
+                };
+            }
+        };
+
+        // UI functions
+        function showMessage(text, duration) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.style.display = 'block';
+            setTimeout(() => msg.style.display = 'none', duration);
+        }
+
+        function showCalculations() {
+            const calc = physics.calculateTrajectory();
+            document.getElementById('calculation-steps').innerHTML = `
+                <div class="formula">Initial Velocity (v₀) = ${calc.initialVelocity} m/s</div>
+                <div class="formula">Angle (θ) = ${calc.angle}°</div>
+                <hr>
+                <div class="formula">Horizontal Velocity (vₓ) = v₀·cosθ = ${calc.velocityX} m/s</div>
+                <div class="formula">Vertical Velocity (vᵧ) = v₀·sinθ = ${calc.velocityY} m/s</div>
+                <hr>
+                <div class="formula">Time of Flight = 2vᵧ/g = ${calc.timeOfFlight} s</div>
+                <div class="formula">Max Height = vᵧ²/2g = ${calc.maxHeight} m</div>
+                <div class="formula">Distance = vₓ × Time = ${calc.distance} m</div>
+                <hr>
+                <div>Main Target Distance = ${calc.targetDistance} m</div>
+                <div>Difference = ${(calc.distance - calc.targetDistance).toFixed(2)} m</div>
+            `;
+            document.getElementById('calculations-panel').style.display = 'block';
+            gameState.showCalculations = true;
+        }
+
+        function hideCalculations() {
+            document.getElementById('calculations-panel').style.display = 'none';
+            gameState.showCalculations = false;
+        }
+
+        function toggleDayNight() {
+            gameState.isDay = !gameState.isDay;
+            
+            if (gameState.isDay) {
+                scene.background = new THREE.Color(0x87CEEB);
+                directionalLight.intensity = 1;
+                ambientLight.intensity = 0.5;
+            } else {
+                scene.background = new THREE.Color(0x111122);
+                directionalLight.intensity = 0.2;
+                ambientLight.intensity = 0.2;
+            }
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            if (gameState.soundEnabled) {
+                sounds.background.play().catch(e => console.log("Background sound play failed:", e));
+            } else {
+                sounds.background.pause();
+            }
+        }
+
+        // Event listeners
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch(e.key.toLowerCase()) {
+                case 'arrowup':
+                    adjustAngle(config.angleStep);
+                    break;
+                case 'arrowdown':
+                    adjustAngle(-config.angleStep);
+                    break;
+                case ' ':
+                    if (!gameState.isFiring) {
+                        physics.fire();
+                    }
+                    break;
+                case 'w':
+                    cameraControls.moveForward = true;
+                    break;
+                case 's':
+                    cameraControls.moveBackward = true;
+                    break;
+                case 'a':
+                    cameraControls.moveLeft = true;
+                    break;
+                case 'd':
+                    cameraControls.moveRight = true;
+                    break;
+                case 'q':
+                    cameraControls.moveUp = true;
+                    break;
+                case 'e':
+                    cameraControls.moveDown = true;
+                    break;
+                case 'r':
+                    if (gameState.cameraMode === 'free') {
+                        setFreeCamera();
+                    } else {
+                        setOrbitCamera();
+                    }
+                    break;
+                case 'c':
+                    toggleCameraMode();
+                    break;
+                case 't':
+                    toggleDayNight();
+                    break;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            switch(e.key.toLowerCase()) {
+                case 'w':
+                    cameraControls.moveForward = false;
+                    break;
+                case 's':
+                    cameraControls.moveBackward = false;
+                    break;
+                case 'a':
+                    cameraControls.moveLeft = false;
+                    break;
+                case 'd':
+                    cameraControls.moveRight = false;
+                    break;
+                case 'q':
+                    cameraControls.moveUp = false;
+                    break;
+                case 'e':
+                    cameraControls.moveDown = false;
+                    break;
+            }
+        });
+
+        // Mouse controls
+        let isMouseDown = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        
+        renderer.domElement.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+        
+        window.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
+        
+        renderer.domElement.addEventListener('mousemove', (e) => {
+            if (isMouseDown && gameState.cameraMode === 'free') {
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+                
+                camera.rotation.y -= deltaX * config.rotationSpeed;
+                camera.rotation.x -= deltaY * config.rotationSpeed;
+                
+                // Clamp vertical rotation to prevent flipping
+                camera.rotation.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, camera.rotation.x));
+                
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+                updateCameraPositionDisplay();
+            }
+        });
+
+        // Click to show calculations
+        renderer.domElement.addEventListener('click', (e) => {
+            if (e.target.tagName.toLowerCase() === 'button') return;
+            if (gameState.showCalculations) {
+                hideCalculations();
+            } else {
+                showCalculations();
+            }
+        });
+
+        // Mouse wheel for zoom/FOV
+        renderer.domElement.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            if (e.ctrlKey) {
+                // Adjust FOV
+                camera.fov = Math.max(
+                    config.minFOV,
+                    Math.min(config.maxFOV, camera.fov - e.deltaY * 0.1)
+                );
+                camera.updateProjectionMatrix();
+                document.getElementById('cam-fov').textContent = Math.round(camera.fov);
+            } else if (gameState.cameraMode === 'orbit') {
+                // Dolly in/out for orbit view
+                const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                config.cameraDistance = Math.max(10, Math.min(100, config.cameraDistance * zoomFactor));
+                setOrbitCamera();
+            } else if (gameState.cameraMode === 'free') {
+                // Adjust movement speed in free mode
+                config.moveSpeed = Math.max(1, Math.min(20, config.moveSpeed - e.deltaY * 0.1));
+                document.getElementById('move-speed').textContent = config.moveSpeed.toFixed(1);
+            }
+        });
+
+        // Environment control buttons
+        document.getElementById('toggle-daynight').addEventListener('click', toggleDayNight);
+        document.getElementById('toggle-sound').addEventListener('click', toggleSound);
+
+        // Initialize game
+        setFreeCamera();
+        updateAngleDisplay();
+        playSound(sounds.background);
+        showMessage("Use arrow keys to aim, Space to fire. WASD to move camera.", 4000);
+
+        // Animation loop
+        let lastTime = 0;
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+            
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            physics.update(deltaTime);
+            
+            // Handle camera movement in free mode
+            if (gameState.cameraMode === 'free') {
+                const deltaSeconds = deltaTime / 1000;
+                const moveDistance = config.moveSpeed * deltaSeconds;
+                const direction = new THREE.Vector3();
+                
+                // Get camera forward direction (without vertical component)
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                forward.y = 0;
+                forward.normalize();
+                
+                // Get camera right direction
+                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                right.y = 0;
+                right.normalize();
+                
+                if (cameraControls.moveForward) camera.position.add(forward.clone().multiplyScalar(moveDistance));
+                if (cameraControls.moveBackward) camera.position.add(forward.clone().multiplyScalar(-moveDistance));
+                if (cameraControls.moveLeft) camera.position.add(right.clone().multiplyScalar(-moveDistance));
+                if (cameraControls.moveRight) camera.position.add(right.clone().multiplyScalar(moveDistance));
+                if (cameraControls.moveUp) camera.position.y += moveDistance;
+                if (cameraControls.moveDown) camera.position.y -= moveDistance;
+                
+                updateCameraPositionDisplay();
+            }
+            
+            renderer.render(scene, camera);
+        }
+        animate(0);
+    </script>
+</body>
+</html>
