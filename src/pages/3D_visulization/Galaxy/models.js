@@ -113,7 +113,7 @@ export function createSolarSystem(scene) {
   scene.add(sunlight);
   objects.sun = sun;
 
-  const baseSpeed = 0.01;
+  const baseSpeed = 0.05;
   const planetData = [
     { name: 'mercury', texture: '2k_mercury.jpg', size: 0.6, orbit: 8 },
     { name: 'venus', texture: '2k_venus_surface.jpg', size: 1, orbit: 12 },
@@ -133,7 +133,8 @@ export function createSolarSystem(scene) {
     mesh.name = planet.name;
     scene.add(mesh);
 
-    const speed = baseSpeed / Math.sqrt(planet.orbit);
+const speed = baseSpeed / Math.pow(planet.orbit, 1.5);
+    
     objects[planet.name] = mesh;
     objects[`${planet.name}Orbit`] = planet.orbit;
     objects[`${planet.name}Angle`] = Math.random() * Math.PI * 2;

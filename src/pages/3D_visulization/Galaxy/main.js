@@ -8,7 +8,7 @@ import {
   createTwinklingStars,
   createSpacecraft
 } from './models.js';
-import { setupControls, updateSpacecraftMovement} from './control.js';
+import { setupControls, updateSpacecraftMovement,onShoot } from './control.js';
 import { planetInfo } from './planetinfo.js';
 
 const scene = new THREE.Scene();
@@ -46,6 +46,27 @@ scene.add(starField);
 const spacecraft = createSpacecraft();
 scene.add(spacecraft);
 let spacecraftActive = true;
+
+//bullet
+const bullets = [];
+
+onShoot(() => {
+  const bullet = new THREE.Mesh(
+    new THREE.SphereGeometry(0.2, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffff00 })
+  );
+  bullet.position.copy(spacecraft.position);
+
+  // Get the local forward direction (-Z)
+  const direction = new THREE.Vector3(0 , 1, 0 );
+  direction.applyQuaternion(spacecraft.quaternion);
+  direction.normalize();
+
+  bullet.userData.velocity = direction.multiplyScalar(1); // speed = 1 unit/frame
+  scene.add(bullet);
+  bullets.push(bullet);
+});
+
 
 // Music
 const listener = new THREE.AudioListener();
@@ -149,6 +170,16 @@ function animate() {
     updateSpacecraftMovement(spacecraft);
     
   }
+
+  for (let i = bullets.length - 1; i >= 0; i--) {
+  const bullet = bullets[i];
+  bullet.position.add(bullet.userData.velocity);
+
+  if (bullet.position.length() > 300) {
+    scene.remove(bullet);
+    bullets.splice(i, 1);
+  }
+}
 
   controls.update();
   renderer.render(scene, camera);

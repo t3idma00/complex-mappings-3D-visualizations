@@ -1,15 +1,24 @@
-// === control.js ===
 import * as THREE from 'three';
 
 const keys = { w: false, a: false, s: false, d: false };
 
+let shootCallback = null;
+
 export function setupControls() {
   window.addEventListener('keydown', e => {
-    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
+    const key = e.key.toLowerCase();
+    if (key in keys) keys[key] = true;
+    if (key === ' ' && shootCallback) shootCallback(); // spacebar = shoot
   });
+
   window.addEventListener('keyup', e => {
-    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
+    const key = e.key.toLowerCase();
+    if (key in keys) keys[key] = false;
   });
+}
+
+export function onShoot(callback) {
+  shootCallback = callback;
 }
 
 export function updateSpacecraftMovement(spacecraft) {
@@ -19,6 +28,3 @@ export function updateSpacecraftMovement(spacecraft) {
   if (keys.a) spacecraft.position.x -= speed;
   if (keys.d) spacecraft.position.x += speed;
 }
-
-
-
