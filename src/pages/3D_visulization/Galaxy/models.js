@@ -126,6 +126,7 @@ export function createSolarSystem(scene) {
   ];
 
   for (const planet of planetData) {
+    // Planet mesh
     const geometry = new THREE.SphereGeometry(planet.size, 32, 32);
     const texture = textureLoader.load(`./asset/${planet.texture}`);
     const material = new THREE.MeshStandardMaterial({ map: texture });
@@ -133,15 +134,33 @@ export function createSolarSystem(scene) {
     mesh.name = planet.name;
     scene.add(mesh);
 
-const speed = baseSpeed / Math.pow(planet.orbit, 1.5);
-    
+    const speed = baseSpeed / Math.pow(planet.orbit, 1.5);
+
     objects[planet.name] = mesh;
     objects[`${planet.name}Orbit`] = planet.orbit;
     objects[`${planet.name}Angle`] = Math.random() * Math.PI * 2;
     objects[`${planet.name}Speed`] = speed;
+
+    // Orbit line
+    const orbitPoints = [];
+    const segments = 100;
+    for (let i = 0; i <= segments; i++) {
+      const theta = (i / segments) * Math.PI * 2;
+      orbitPoints.push(new THREE.Vector3(
+        Math.cos(theta) * planet.orbit,
+        0,
+        Math.sin(theta) * planet.orbit
+      ));
+    }
+    const orbitGeometry = new THREE.BufferGeometry().setFromPoints(orbitPoints);
+    const orbitMaterial = new THREE.LineBasicMaterial({ color: 0x888888 });
+    const orbitLine = new THREE.LineLoop(orbitGeometry, orbitMaterial);
+    scene.add(orbitLine);
   }
+
   return objects;
 }
+
 
 export function updateSolarSystem(objects) {
   const planetNames = ['mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];

@@ -6,10 +6,12 @@ import {
   createSolarSystem,
   updateSolarSystem,
   createTwinklingStars,
-  createSpacecraft
+  createSpacecraft,
 } from './models.js';
 import { setupControls, updateSpacecraftMovement,onShoot } from './control.js';
 import { planetInfo } from './planetinfo.js';
+import { createAllConstellations, createConstellationSphere } from './constellations.js';
+
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -41,6 +43,12 @@ ringGalaxies.forEach((r, i) => {
 const solarSystem = createSolarSystem(scene);
 const starField = createTwinklingStars(4000, 300);
 scene.add(starField);
+
+const constellations = createAllConstellations();
+scene.add(constellations);
+
+const constellationSphere = createConstellationSphere();
+scene.add(constellationSphere);
 
 // Spacecraft
 const spacecraft = createSpacecraft();
@@ -184,4 +192,10 @@ function animate() {
   controls.update();
   renderer.render(scene, camera);
 }
+
+const axesHelper = new THREE.AxesHelper(10);
+axesHelper.position.set(0, 0, 40);
+scene.add(axesHelper);
+
+
 animate();
