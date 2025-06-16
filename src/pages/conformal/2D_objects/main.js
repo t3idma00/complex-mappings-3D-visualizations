@@ -54,11 +54,11 @@ function tanTransform(x, y) {
 }
 
 function logTransform(x, y) {
-    return { x: 0.5 * Math.log(x * x + y * y), y: Math.atan2(y, x) };
+    return { x: 0.5 * Math.log10(x * x + y * y), y: Math.atan2(y, x) };
 }
 
 function lnTransform(x, y) {
-    return logTransform(x, y);
+    return { x: 0.5 * Math.log(x * x + y * y), y: Math.atan2(y, x) };
 }
 
 function expTransform(x, y) {

@@ -1,6 +1,6 @@
 // CONFIGURATION
 const CONFIG = {
-    RANGE: 3,
+    RANGE: Math.PI,
     STEP: 0.25,
     BG_COLOR: 0xffffff,
     GRID_COLOR_X: 0x3498db,
@@ -61,7 +61,7 @@ function logTransform(x, y) {
 }
 
 function lnTransform(x, y) {
-    return logTransform(x, y);
+    return { x: 0.5 * Math.log10(x * x + y * y), y: Math.atan2(y, x) };
 }
 
 function expTransform(x, y) {

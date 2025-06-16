@@ -296,7 +296,7 @@ function enableDragging(container, scene, camera) {
         if (!raycaster.ray.intersectPlane(plane, worldIntersectPoint)) return;
 
         // Calculate boundaries
-        const maxPos = CONFIG.RANGE * CONFIG.BOUNDARY_PADDING;
+const maxPos = CONFIG.RANGE;
         const minPos = -maxPos;
 
         if (draggedObject === 'handle') {
@@ -316,8 +316,9 @@ function enableDragging(container, scene, camera) {
                 const oppositeY = oppositeHandle.position.y;
 
                 // Calculate new scale with minimum constraint
-                const newScaleX = Math.max(CONFIG.MIN_SCALE, Math.min(CONFIG.MAX_SCALE, Math.abs(newHandleX - oppositeX) / 2));
-                const newScaleY = Math.max(CONFIG.MIN_SCALE, Math.min(CONFIG.MAX_SCALE, Math.abs(newHandleY - oppositeY) / 2));
+                const newScaleX = Math.max(CONFIG.MIN_SCALE, Math.abs(newHandleX - oppositeX) / 2);
+const newScaleY = Math.max(CONFIG.MIN_SCALE, Math.abs(newHandleY - oppositeY) / 2);
+
                 
                 // Update image transformation
                 imageScale.x = newScaleX;
@@ -380,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const denom = Math.cos(2 * x) + Math.cosh(2 * y);
         return Math.abs(denom) < 0.0001 ? { x: NaN, y: NaN } : { x: Math.sin(2 * x) / denom, y: Math.sinh(2 * y) / denom };
     });
-    initVisualization('logz-canvas', (x, y) => ({ x: 0.5 * Math.log(x * x + y * y), y: Math.atan2(y, x) }));
+    initVisualization('logz-canvas', (x, y) => ({ x: 0.5 * Math.log10(x * x + y * y), y: Math.atan2(y, x) }));
     initVisualization('lnz-canvas', (x, y) => ({ x: 0.5 * Math.log(x * x + y * y), y: Math.atan2(y, x) }));
     initVisualization('expz-canvas', (x, y) => {
         const expX = Math.exp(x);
