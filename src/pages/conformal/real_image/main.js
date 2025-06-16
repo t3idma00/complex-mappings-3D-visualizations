@@ -1,6 +1,6 @@
 // CONFIGURATION
 const CONFIG = {
-    RANGE: 3,
+    RANGE: Math.PI,
     STEP: 0.25,
     BG_COLOR: 0xffffff,
     GRID_COLOR_X: 0x3498db,
@@ -104,10 +104,10 @@ function addBaseGrid(scene) {
         if (i !== 0) {
             const tickLength = 0.1;
             addLine(scene, [i, -tickLength / 2, 0, i, tickLength / 2, 0], CONFIG.AXIS_COLOR, 1.5, 1);
-            const xLabel = createTextLabel(i.toString(), i, -tickLength * 1.5);
+const xLabel = createTextLabel(i.toFixed(2), i, -tickLength * 1.5);
             scene.add(xLabel);
             addLine(scene, [-tickLength / 2, i, 0, tickLength / 2, i, 0], CONFIG.AXIS_COLOR, 1.5, 1);
-            const yLabel = createTextLabel(i.toString(), tickLength * 1.5, i);
+const yLabel = createTextLabel(i.toFixed(2), tickLength * 1.5, i);
             scene.add(yLabel);
         }
     }
