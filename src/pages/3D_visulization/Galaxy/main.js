@@ -3,15 +3,15 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   createRingGalaxy,
   createSpiralGalaxy,
-  createSolarSystem,
-  updateSolarSystem,
   createTwinklingStars,
   createSpacecraft,
+  createPhysicsWorld,
+  createSolarSystemWithPhysics,
+  updatePhysics
 } from './models.js';
-import { setupControls, updateSpacecraftMovement,onShoot } from './control.js';
-import { planetInfo } from './planetinfo.js';
-import { createAllConstellations, createConstellationSphere } from './constellations.js';
-
+import { setupControls, updateSpacecraftMovement, onShoot } from './control.js';
+import { planetInfo, Constellations } from './planetinfo.js';
+import { createConstellationSphere } from './constellations.js';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -22,66 +22,71 @@ document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
+const world = createPhysicsWorld();
+const { sun, planets } = createSolarSystemWithPhysics(scene, world);
+
 const dateDisplay = document.getElementById('dateDisplay');
 const today = new Date();
-let currentDate = new Date(today);
-dateDisplay.textContent = `🕒 ${currentDate.toDateString()}`;
 
 const spiralGroup = new THREE.Group();
-spiralGroup.add(createSpiralGalaxy({ starCount: 15000, radius: 30, branches: 3, spin: 1.5, randomness: 0.3, yThickness: 1.2, innerColor: '#fff5cc', outerColor: '#cc33ff' }));
+spiralGroup.add(createSpiralGalaxy({
+  starCount: 15000,
+  radius: 30,
+  branches: 3,
+  spin: 1.5,
+  randomness: 0.3,
+  yThickness: 1.2,
+  innerColor: '#fff5cc',
+  outerColor: '#cc33ff'
+}));
 spiralGroup.position.set(-40, 10, -20);
 spiralGroup.rotation.set(Math.PI / 4, Math.PI / 5, 0);
 scene.add(spiralGroup);
 
-const ringGalaxies = createRingGalaxy({ countPerRing: 10000, size: 0.03, radii: [1.5, 3, 3.5], thickness: 0.7, colorStart: '#ff6030', colorEnd: '#1b3984' });
+const ringGalaxies = createRingGalaxy({
+  countPerRing: 10000,
+  size: 0.03,
+  radii: [1.5, 3, 3.5],
+  thickness: 0.7,
+  colorStart: '#ff6030',
+  colorEnd: '#1b3984'
+});
 ringGalaxies.forEach((r, i) => {
   r.position.set(30, -5, 20);
   r.rotation.set(Math.PI, 0, 0);
   scene.add(r);
 });
 
-const solarSystem = createSolarSystem(scene);
 const starField = createTwinklingStars(4000, 300);
 scene.add(starField);
 
-const constellations = createAllConstellations();
-scene.add(constellations);
+scene.add(createConstellationSphere());
 
-const constellationSphere = createConstellationSphere();
-scene.add(constellationSphere);
-
-// Spacecraft
 const spacecraft = createSpacecraft();
 scene.add(spacecraft);
 let spacecraftActive = true;
 
-//bullet
 const bullets = [];
-
 onShoot(() => {
   const bullet = new THREE.Mesh(
     new THREE.SphereGeometry(0.2, 8, 8),
     new THREE.MeshBasicMaterial({ color: 0xffff00 })
   );
   bullet.position.copy(spacecraft.position);
-
-  // Get the local forward direction (-Z)
-  const direction = new THREE.Vector3(0 , 1, 0 );
+  const direction = new THREE.Vector3(0, 1, 0);
   direction.applyQuaternion(spacecraft.quaternion);
   direction.normalize();
-
-  bullet.userData.velocity = direction.multiplyScalar(1); // speed = 1 unit/frame
+  bullet.userData.velocity = direction.multiplyScalar(1);
   scene.add(bullet);
   bullets.push(bullet);
 });
 
-
-// Music
 const listener = new THREE.AudioListener();
 camera.add(listener);
 const sound = new THREE.Audio(listener);
 const audioLoader = new THREE.AudioLoader();
 let musicStarted = false;
+
 function startBackgroundMusic() {
   if (musicStarted) return;
   musicStarted = true;
@@ -95,7 +100,6 @@ function startBackgroundMusic() {
 window.addEventListener('click', startBackgroundMusic, { once: true });
 window.addEventListener('keydown', startBackgroundMusic, { once: true });
 
-// Music Control Button
 const audioControlButton = document.createElement('button');
 audioControlButton.textContent = 'Mute Music';
 audioControlButton.style.position = 'absolute';
@@ -113,10 +117,10 @@ audioControlButton.onclick = () => {
   }
 };
 
-// Planet Info + Spacecraft Raycast
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 const popup = document.getElementById('popup');
+
 function smoothZoomTo(pos) {
   const start = camera.position.clone();
   const target = pos.clone().add(new THREE.Vector3(10, 10, 10));
@@ -140,33 +144,57 @@ window.addEventListener('click', e => {
   raycaster.setFromCamera(mouse, camera);
   raycaster.far = 1000;
   const intersects = raycaster.intersectObjects(scene.children, true);
+
   if (intersects.length > 0) {
-    const clicked = intersects.find(obj => obj.object.name?.toLowerCase());
-    const name = clicked?.object.name.toLowerCase();
+    const clicked = intersects[0];
+    const object = clicked.object;
+    const name = object.name?.toLowerCase() || '';
+    const parentName = object.parent?.name?.toLowerCase() || '';
+    const constellationId = object.userData?.constellationName?.toLowerCase();
+
     if (name === 'spacecraft') {
       spacecraftActive = true;
       popup.innerHTML = `🚀 <b>Spacecraft</b><br>You are now in control! Use W/A/S/D to move.`;
       popup.style.display = 'block';
       return;
     }
+
     if (planetInfo[name]) {
       popup.innerHTML = planetInfo[name];
       popup.style.display = 'block';
-      const planet = solarSystem[name];
-      if (planet) smoothZoomTo(planet.position);
+      return;
+    }
+
+    if (Constellations[name]) {
+      popup.innerHTML = Constellations[name];
+      popup.style.display = 'block';
+      return;
+    }
+
+    if (Constellations[parentName]) {
+      popup.innerHTML = Constellations[parentName] + `<br><br>${object.userData.info || ''}`;
+      popup.style.display = 'block';
+      return;
+    }
+
+    if (Constellations[constellationId]) {
+      popup.innerHTML = Constellations[constellationId];
+      popup.style.display = 'block';
       return;
     }
   }
+
   popup.style.display = 'none';
 });
 
-// Controls and Animate
 setupControls();
+
 function animate() {
   requestAnimationFrame(animate);
+  world.step(1 / 60);
+  updatePhysics(planets, sun);
   spiralGroup.rotation.y += 0.0012;
   ringGalaxies.forEach((r, i) => r.rotation.y += 0.0008 / (i + 1));
-  updateSolarSystem(solarSystem);
 
   const alphaAttr = starField.userData.alphaAttr;
   for (let i = 0; i < alphaAttr.count; i++) {
@@ -174,28 +202,102 @@ function animate() {
   }
   alphaAttr.needsUpdate = true;
 
-  if (spacecraftActive) {
-    updateSpacecraftMovement(spacecraft);
-    
-  }
-
+  if (spacecraftActive) updateSpacecraftMovement(spacecraft);
   for (let i = bullets.length - 1; i >= 0; i--) {
-  const bullet = bullets[i];
-  bullet.position.add(bullet.userData.velocity);
-
-  if (bullet.position.length() > 300) {
-    scene.remove(bullet);
-    bullets.splice(i, 1);
+    const bullet = bullets[i];
+    bullet.position.add(bullet.userData.velocity);
+    if (bullet.position.length() > 300) {
+      scene.remove(bullet);
+      bullets.splice(i, 1);
+    }
   }
-}
+
+  const earth = planets.find(p => p.name === 'earth');
+  if (earth) {
+    const angle = Math.atan2(earth.body.position.z, earth.body.position.x);
+    const yearFraction = (angle + Math.PI) / (2 * Math.PI);
+    const days = Math.round(365 * yearFraction);
+    const simulatedDate = new Date(today.getFullYear(), 0, 1 + days);
+    dateDisplay.textContent = `🕒 ${simulatedDate.toDateString()}`;
+  }
 
   controls.update();
   renderer.render(scene, camera);
 }
 
-const axesHelper = new THREE.AxesHelper(10);
-axesHelper.position.set(0, 0, 40);
-scene.add(axesHelper);
-
-
+scene.add(new THREE.AxesHelper(10));
 animate();
+
+const panel = document.getElementById('controlPanel');
+planets.forEach(planet => {
+  const group = document.createElement('div');
+  group.className = 'planet-group';
+
+  const title = document.createElement('h4');
+  title.textContent = planet.name.charAt(0).toUpperCase() + planet.name.slice(1);
+  title.style.marginBottom = '5px';
+  group.appendChild(title);
+
+  const massLabel = document.createElement('label');
+  massLabel.textContent = `Mass (${planet.body.mass.toFixed(2)}× Earth)`;
+  const massSlider = document.createElement('input');
+  massSlider.type = 'range';
+  massSlider.min = 0.01;
+  massSlider.max = 500;
+  massSlider.step = 0.01;
+  massSlider.value = planet.body.mass;
+  massSlider.oninput = () => {
+    planet.body.mass = parseFloat(massSlider.value);
+    massLabel.textContent = `Mass (${planet.body.mass.toFixed(2)}× Earth)`;
+  };
+  group.appendChild(massLabel);
+  group.appendChild(massSlider);
+
+  const orbitLabel = document.createElement('label');
+  orbitLabel.textContent = `Orbit Radius (${planet.initialOrbit.toFixed(1)})`;
+  const orbitSlider = document.createElement('input');
+  orbitSlider.type = 'range';
+  orbitSlider.min = 4;
+  orbitSlider.max = 60;
+  orbitSlider.step = 0.5;
+  orbitSlider.value = planet.initialOrbit;
+  orbitSlider.oninput = () => {
+    const radius = parseFloat(orbitSlider.value);
+    orbitLabel.textContent = `Orbit Radius (${radius})`;
+    planet.initialOrbit = radius;
+    const G = 1;
+    const angle = Math.atan2(planet.body.position.z, planet.body.position.x);
+    const speed = Math.sqrt((G * sun.mass) / radius);
+    planet.body.position.set(radius * Math.cos(angle), 0, radius * Math.sin(angle));
+    planet.body.velocity.set(-Math.sin(angle) * speed, 0, Math.cos(angle) * speed);
+    planet.initialVelocity = { vx: speed, vz: speed };
+  };
+  group.appendChild(orbitLabel);
+  group.appendChild(orbitSlider);
+
+  panel.appendChild(group);
+});
+
+// === Add Sun Mass Control ===
+const sunGroup = document.createElement('div');
+sunGroup.className = 'planet-group';
+
+const sunTitle = document.createElement('h4');
+sunTitle.textContent = "Sun";
+sunTitle.style.marginBottom = '5px';
+sunGroup.appendChild(sunTitle);
+
+const sunMassLabel = document.createElement('label');
+sunMassLabel.textContent = `Mass (${sun.mass.toFixed(0)}× default)`;
+sunGroup.appendChild(sunMassLabel);
+
+const sunMassSlider = document.createElement('input');
+const sunMassInput = document.getElementById('sunMass');
+const sunMassValue = document.getElementById('sunMassValue');
+sunMassInput.addEventListener('input', () => {
+  sun.mass = parseFloat(sunMassInput.value);
+  sunMassValue.textContent = sun.mass.toFixed(0);
+});
+sunGroup.appendChild(sunMassSlider);
+
+panel.appendChild(sunGroup);

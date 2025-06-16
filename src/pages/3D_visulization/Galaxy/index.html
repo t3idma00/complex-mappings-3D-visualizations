@@ -4,11 +4,13 @@
   <meta charset="UTF-8" />
   <title>Interactive Solar System</title>
   <style>
-    body { margin: 0; overflow: hidden; }
+    body { margin: 0; overflow: hidden; background: black; }
     canvas { display: block; }
+
     #popup {
       position: absolute;
-      top: 20px; left: 20px;
+      top: 20px;
+      left: 20px;
       background: rgba(0,0,0,0.75);
       color: #fff;
       padding: 12px 18px;
@@ -20,6 +22,7 @@
       z-index: 999;
       display: none;
     }
+
     #dateDisplay {
       position: absolute;
       top: 20px;
@@ -30,19 +33,57 @@
       font-size: 16px;
       z-index: 1000;
     }
+
+    #controlPanel {
+      position: absolute;
+      top: 80px;
+      right: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      font-family: sans-serif;
+      z-index: 999;
+      max-height: 80vh;
+      overflow: auto;
+      width: 240px;
+    }
+
+    .planet-group {
+      margin-bottom: 15px;
+    }
+
+    .planet-group label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .planet-group input[type="range"] {
+      width: 100%;
+    }
   </style>
+
   <script type="importmap">
     {
       "imports": {
         "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
-        "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js"
+        "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js",
+        "cannon-es": "https://cdn.skypack.dev/cannon-es"
       }
     }
-  </script> 
+  </script>
 </head>
 <body>
   <div id="dateDisplay"></div>
   <div id="popup"></div>
+  <div id="controlPanel">
+    <div class="planet-group">
+    <label for="sunMass">☀ Sun Mass: <span id="sunMassValue">1000</span></label>
+  <input id="sunMass" type="range" min="10" max="3000" step="1" value="1000" />
+      <span id="sunMassValue">1000</span>
+    </div>
+  </div>
   <script type="module" src="main.js"></script>
 </body>
 </html>
