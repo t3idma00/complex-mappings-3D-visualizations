@@ -157,47 +157,71 @@ function createImageHandles(scene) {
 function updateImageTransformation(scene, transformFunction, canvasId) {
     if (!scene || !loadedImage) return;
 
-    // Remove existing image and handles
+    // Remove previous image mesh if exists
     if (imageMesh) scene.remove(imageMesh);
     if (canvasId === 'input-canvas') createImageHandles(scene);
 
+    // Create geometry with a grid for distortion
     const geometry = new THREE.PlaneGeometry(2, 2, CONFIG.IMAGE_GRID_SIZE, CONFIG.IMAGE_GRID_SIZE);
     const material = new THREE.MeshBasicMaterial({
         map: imageTexture,
-        side: THREE.FrontSide,
+        side: THREE.DoubleSide,
         transparent: true,
         opacity: CONFIG.IMAGE_OPACITY,
-        depthTest: true
+        depthTest: true,
     });
 
     imageMesh = new THREE.Mesh(geometry, material);
     imageMesh.name = 'image';
     imageMesh.userData.isImage = true;
-    imageMesh.renderOrder = 1; 
+    imageMesh.renderOrder = 1;
 
-    // Apply scaling and position
-    imageMesh.scale.set(imageScale.x, imageScale.y, 1);
-    imageMesh.position.set(imagePosition.x, imagePosition.y, 0);
+    if (canvasId === 'input-canvas') {
+        // On input canvas: scale and position only
+        imageMesh.scale.set(imageScale.x, imageScale.y, 1);
+        imageMesh.position.set(imagePosition.x, imagePosition.y, 0);
+    } else {
+        // On output canvas: apply complex transform
+        const posAttr = geometry.attributes.position;
+        const vertex = new THREE.Vector3();
 
-    // Transform vertices for non-input canvases
-    if (canvasId !== 'input-canvas') {
-        const positionAttribute = geometry.getAttribute('position');
-        const originalPositions = positionAttribute.array.slice();
+        for (let i = 0; i < posAttr.count; i++) {
+            vertex.fromBufferAttribute(posAttr, i);
 
-        for (let i = 0; i < positionAttribute.count; i++) {
-            const x = originalPositions[i * 3] * imageScale.x + imagePosition.x;
-            const y = originalPositions[i * 3 + 1] * imageScale.y + imagePosition.y;
+            // Normalize [-1, 1] range to [0, 1]
+            const sx = (vertex.x + 1) / 2;
+            const sy = (vertex.y + 1) / 2;
 
-            const transformed = transformFunction(x, y);
-            positionAttribute.setXYZ(i, transformed.x, transformed.y, 0);
+            // Define corners A (bl), B (br), C (tr), D (tl)
+            const A = imageHandles[0]?.position || new THREE.Vector3(-1, -1, 0);
+            const B = imageHandles[1]?.position || new THREE.Vector3(1, -1, 0);
+            const C = imageHandles[2]?.position || new THREE.Vector3(1, 1, 0);
+            const D = imageHandles[3]?.position || new THREE.Vector3(-1, 1, 0);
+
+            // Bilinear interpolation to get pixel location
+            const px = A.x * (1 - sx) * (1 - sy) +
+                       B.x * sx * (1 - sy) +
+                       C.x * sx * sy +
+                       D.x * (1 - sx) * sy;
+
+            const py = A.y * (1 - sx) * (1 - sy) +
+                       B.y * sx * (1 - sy) +
+                       C.y * sx * sy +
+                       D.y * (1 - sx) * sy;
+
+            // Apply complex function
+            const { x: tx, y: ty } = transformFunction(px, py);
+
+            posAttr.setXYZ(i, isNaN(tx) ? 0 : tx, isNaN(ty) ? 0 : ty, 0);
         }
 
-        positionAttribute.needsUpdate = true;
+        posAttr.needsUpdate = true;
     }
 
     scene.add(imageMesh);
     return imageMesh;
 }
+
 
 function createTextLabel(text, x, y) {
     const canvas = document.createElement('canvas');
@@ -270,9 +294,9 @@ function enableDragging(container, scene, camera) {
             dragging = true;
             draggedObject = 'handle';
             draggedHandleIndex = handleIntersects[0].object.userData.handleIndex;
-            raycaster.ray.intersectPlane(plane, worldIntersectPoint);
-            dragOffset.x = worldIntersectPoint.x - handleIntersects[0].object.position.x;
-            dragOffset.y = worldIntersectPoint.y - handleIntersects[0].object.position.y;
+            // Use intersection point of the handle mesh for smooth dragging
+            dragOffset.x = handleIntersects[0].point.x - handleIntersects[0].object.position.x;
+            dragOffset.y = handleIntersects[0].point.y - handleIntersects[0].object.position.y;
             return;
         }
 
@@ -281,9 +305,10 @@ function enableDragging(container, scene, camera) {
         if (intersects.length > 0) {
             dragging = true;
             draggedObject = 'image';
-            raycaster.ray.intersectPlane(plane, worldIntersectPoint);
-            dragOffset.x = worldIntersectPoint.x - imageMesh.position.x;
-            dragOffset.y = worldIntersectPoint.y - imageMesh.position.y;
+            // Use intersection point of the image mesh for smooth dragging
+            dragOffset.x = handleIntersects[0].object.position.x - handleIntersects[0].point.x;
+dragOffset.y = handleIntersects[0].object.position.y - handleIntersects[0].point.y;
+
         }
     }
 
@@ -296,7 +321,7 @@ function enableDragging(container, scene, camera) {
         if (!raycaster.ray.intersectPlane(plane, worldIntersectPoint)) return;
 
         // Calculate boundaries
-const maxPos = CONFIG.RANGE;
+        const maxPos = CONFIG.RANGE;
         const minPos = -maxPos;
 
         if (draggedObject === 'handle') {
@@ -317,9 +342,8 @@ const maxPos = CONFIG.RANGE;
 
                 // Calculate new scale with minimum constraint
                 const newScaleX = Math.max(CONFIG.MIN_SCALE, Math.abs(newHandleX - oppositeX) / 2);
-const newScaleY = Math.max(CONFIG.MIN_SCALE, Math.abs(newHandleY - oppositeY) / 2);
+                const newScaleY = Math.max(CONFIG.MIN_SCALE, Math.abs(newHandleY - oppositeY) / 2);
 
-                
                 // Update image transformation
                 imageScale.x = newScaleX;
                 imageScale.y = newScaleY;
