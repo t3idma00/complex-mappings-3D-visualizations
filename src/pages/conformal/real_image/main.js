@@ -132,7 +132,7 @@ function createImageHandles(scene) {
     imageHandles.forEach(handle => scene.remove(handle));
     imageHandles = [];
 
-    const handleGeometry = new THREE.SphereGeometry(CONFIG.HANDLE_SIZE * 1.5, 16, 16); // Slightly larger for better interaction
+    const handleGeometry = new THREE.SphereGeometry(CONFIG.HANDLE_SIZE * 1.5, 16, 16); 
     const handleMaterial = new THREE.MeshBasicMaterial({ 
         color: CONFIG.HANDLE_COLOR,
         depthTest: false 
@@ -157,7 +157,6 @@ function createImageHandles(scene) {
 function updateImageTransformation(scene, transformFunction, canvasId) {
     if (!scene || !loadedImage) return;
 
-    // Remove previous image mesh if exists
     if (imageMesh) scene.remove(imageMesh);
     if (canvasId === 'input-canvas') createImageHandles(scene);
 
@@ -188,11 +187,9 @@ function updateImageTransformation(scene, transformFunction, canvasId) {
         for (let i = 0; i < posAttr.count; i++) {
             vertex.fromBufferAttribute(posAttr, i);
 
-            // Normalize [-1, 1] range to [0, 1]
             const sx = (vertex.x + 1) / 2;
             const sy = (vertex.y + 1) / 2;
 
-            // Define corners A (bl), B (br), C (tr), D (tl)
             const A = imageHandles[0]?.position || new THREE.Vector3(-1, -1, 0);
             const B = imageHandles[1]?.position || new THREE.Vector3(1, -1, 0);
             const C = imageHandles[2]?.position || new THREE.Vector3(1, 1, 0);
@@ -209,7 +206,6 @@ function updateImageTransformation(scene, transformFunction, canvasId) {
                        C.y * sx * sy +
                        D.y * (1 - sx) * sy;
 
-            // Apply complex function
             const { x: tx, y: ty } = transformFunction(px, py);
 
             posAttr.setXYZ(i, isNaN(tx) ? 0 : tx, isNaN(ty) ? 0 : ty, 0);
@@ -285,80 +281,75 @@ function enableDragging(container, scene, camera) {
     }
 
     function onPointerDown(event) {
-        getMousePosition(event);
-        raycaster.setFromCamera(mouse, camera);
-        
-        // Check for handle first
-        const handleIntersects = raycaster.intersectObjects(imageHandles, true);
-        if (handleIntersects.length > 0) {
-            dragging = true;
-            draggedObject = 'handle';
-            draggedHandleIndex = handleIntersects[0].object.userData.handleIndex;
-            // Use intersection point of the handle mesh for smooth dragging
-            dragOffset.x = handleIntersects[0].point.x - handleIntersects[0].object.position.x;
-            dragOffset.y = handleIntersects[0].point.y - handleIntersects[0].object.position.y;
-            return;
-        }
+    getMousePosition(event);
+    raycaster.setFromCamera(mouse, camera);
 
-        // Check for image
-        const intersects = raycaster.intersectObject(imageMesh, true);
-        if (intersects.length > 0) {
-            dragging = true;
-            draggedObject = 'image';
-            // Use intersection point of the image mesh for smooth dragging
-            dragOffset.x = handleIntersects[0].object.position.x - handleIntersects[0].point.x;
-dragOffset.y = handleIntersects[0].object.position.y - handleIntersects[0].point.y;
+    // Handle dragging start for handles
+    const handleIntersects = raycaster.intersectObjects(imageHandles, true);
+    if (handleIntersects.length > 0) {
+        dragging = true;
+        draggedObject = 'handle';
+        draggedHandleIndex = handleIntersects[0].object.userData.handleIndex;
 
-        }
+        dragOffset.x = handleIntersects[0].object.position.x - handleIntersects[0].point.x;
+        dragOffset.y = handleIntersects[0].object.position.y - handleIntersects[0].point.y;
+        return;
     }
+
+    // Handle dragging start for image
+    const intersects = raycaster.intersectObject(imageMesh, true);
+    if (intersects.length > 0) {
+        dragging = true;
+        draggedObject = 'image';
+
+        dragOffset.x = imageMesh.position.x - intersects[0].point.x;
+        dragOffset.y = imageMesh.position.y - intersects[0].point.y;
+    }
+}
+
 
     function onPointerMove(event) {
-        if (!dragging) return;
+    if (!dragging) return;
 
-        getMousePosition(event);
-        raycaster.setFromCamera(mouse, camera);
-        
-        if (!raycaster.ray.intersectPlane(plane, worldIntersectPoint)) return;
+    getMousePosition(event);
+    raycaster.setFromCamera(mouse, camera);
 
-        // Calculate boundaries
-        const maxPos = CONFIG.RANGE;
-        const minPos = -maxPos;
+    if (!raycaster.ray.intersectPlane(plane, worldIntersectPoint)) return;
 
-        if (draggedObject === 'handle') {
-            // Calculate new handle position with boundaries
-            let newHandleX = worldIntersectPoint.x - dragOffset.x;
-            let newHandleY = worldIntersectPoint.y - dragOffset.y;
-            
-            newHandleX = Math.max(minPos, Math.min(maxPos, newHandleX));
-            newHandleY = Math.max(minPos, Math.min(maxPos, newHandleY));
+    const maxPos = CONFIG.RANGE;
+    const minPos = -maxPos;
 
-            // Calculate opposite corner position
-            const oppositeIndex = (draggedHandleIndex + 2) % 4;
-            const oppositeHandle = imageHandles[oppositeIndex];
+    if (draggedObject === 'handle') {
+        let newHandleX = worldIntersectPoint.x + dragOffset.x;
+        let newHandleY = worldIntersectPoint.y + dragOffset.y;
 
-            if (oppositeHandle) {
-                const oppositeX = oppositeHandle.position.x;
-                const oppositeY = oppositeHandle.position.y;
+        newHandleX = Math.max(minPos, Math.min(maxPos, newHandleX));
+        newHandleY = Math.max(minPos, Math.min(maxPos, newHandleY));
 
-                // Calculate new scale with minimum constraint
-                const newScaleX = Math.max(CONFIG.MIN_SCALE, Math.abs(newHandleX - oppositeX) / 2);
-                const newScaleY = Math.max(CONFIG.MIN_SCALE, Math.abs(newHandleY - oppositeY) / 2);
+        const oppositeIndex = (draggedHandleIndex + 2) % 4;
+        const oppositeHandle = imageHandles[oppositeIndex];
 
-                // Update image transformation
-                imageScale.x = newScaleX;
-                imageScale.y = newScaleY;
-                imagePosition.x = (newHandleX + oppositeX) / 2;
-                imagePosition.y = (newHandleY + oppositeY) / 2;
-                
-                updateAllImages();
-            }
-        } else if (draggedObject === 'image') {
-            // Move the image with boundaries
-            imagePosition.x = Math.max(minPos, Math.min(maxPos, worldIntersectPoint.x - dragOffset.x));
-            imagePosition.y = Math.max(minPos, Math.min(maxPos, worldIntersectPoint.y - dragOffset.y));
+        if (oppositeHandle) {
+            const oppositeX = oppositeHandle.position.x;
+            const oppositeY = oppositeHandle.position.y;
+
+            const newScaleX = Math.max(CONFIG.MIN_SCALE, Math.abs(newHandleX - oppositeX) / 2);
+            const newScaleY = Math.max(CONFIG.MIN_SCALE, Math.abs(newHandleY - oppositeY) / 2);
+
+            imageScale.x = newScaleX;
+            imageScale.y = newScaleY;
+            imagePosition.x = (newHandleX + oppositeX) / 2;
+            imagePosition.y = (newHandleY + oppositeY) / 2;
+
             updateAllImages();
         }
+    } else if (draggedObject === 'image') {
+        imagePosition.x = Math.max(minPos, Math.min(maxPos, worldIntersectPoint.x + dragOffset.x));
+        imagePosition.y = Math.max(minPos, Math.min(maxPos, worldIntersectPoint.y + dragOffset.y));
+        updateAllImages();
     }
+}
+
 
     function onPointerUp() {
         dragging = false;
@@ -366,8 +357,7 @@ dragOffset.y = handleIntersects[0].object.position.y - handleIntersects[0].point
         draggedHandleIndex = -1;
     }
 
-    // Set up event listeners
-    container.style.touchAction = 'none'; // Prevent touch scrolling
+    container.style.touchAction = 'none'; 
     container.addEventListener('pointerdown', onPointerDown);
     container.addEventListener('pointermove', onPointerMove);
     container.addEventListener('pointerup', onPointerUp);
@@ -378,11 +368,9 @@ function updateAllImages() {
     for (const canvasId in scenes) {
         const { scene, transformFunction } = scenes[canvasId];
 
-        // Clear existing objects
         if (scene.getObjectByName('image')) scene.remove(scene.getObjectByName('image'));
         imageHandles.forEach(handle => scene.remove(handle));
 
-        // Recreate everything
         if (loadedImage) {
             updateImageTransformation(scene, transformFunction, canvasId);
         }
@@ -391,7 +379,6 @@ function updateAllImages() {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize all visualizations
     initVisualization('input-canvas', (x, y) => ({ x, y }));
     initVisualization('z2-canvas', (x, y) => ({ x: x * x - y * y, y: 2 * x * y }));
     initVisualization('inverse-canvas', (x, y) => {
@@ -424,7 +411,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 imageTexture = new THREE.Texture(loadedImage);
                 imageTexture.needsUpdate = true;
 
-                // Calculate initial scale based on image aspect ratio
                 const aspect = loadedImage.width / loadedImage.height;
                 imagePosition = { x: 0, y: 0 };
                 imageScale = {
