@@ -27,7 +27,7 @@ export function createConstellation(name, starsData, color = 0xffffff) {
     geometry,
     new THREE.LineBasicMaterial({ color: 0x8888ff, transparent: true, opacity: 0.5 })
   );
-  line.name = name.toLowerCase(); // 👈 so it's raycastable
+  line.name = name.toLowerCase(); // 
   line.userData = {
     constellationName: name.toLowerCase()
   };

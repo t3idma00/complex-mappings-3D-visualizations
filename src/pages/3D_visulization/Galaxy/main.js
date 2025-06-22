@@ -9,9 +9,12 @@ import {
   createSolarSystemWithPhysics,
   updatePhysics
 } from './models.js';
-import { setupControls, updateSpacecraftMovement, onShoot } from './control.js';
 import { planetInfo, Constellations } from './planetinfo.js';
+import { setupControls, updateSpacecraftMovement, onShoot } from './control.js';
+
 import { createConstellationSphere } from './constellations.js';
+import { setupPlanetLanding } from './setupPlanetLanding.js';
+
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -301,3 +304,6 @@ sunMassInput.addEventListener('input', () => {
 sunGroup.appendChild(sunMassSlider);
 
 panel.appendChild(sunGroup);
+
+
+setupPlanetLanding(scene, camera, controls, planets, renderer);
