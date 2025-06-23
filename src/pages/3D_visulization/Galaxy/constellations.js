@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Constellations } from './planetinfo.js';
+
 
 export function createConstellation(name, starsData, color = 0xffffff) {
   const group = new THREE.Group();
@@ -39,7 +39,9 @@ export function createConstellation(name, starsData, color = 0xffffff) {
 }
 
 const deg = Math.PI / 180;
-const realConstellations = [
+
+
+export const realConstellations = [
   {
     name: 'orion',
     stars: [
@@ -163,22 +165,22 @@ const realConstellations = [
 ];
 
 
-export function createConstellationSphere(radius = 350) {
-  const group = new THREE.Group();
-  for (const { name, stars } of realConstellations) {
-    const starObjs = stars.map(s => {
-      const raRad = s.ra * deg;
-      const decRad = s.dec * deg;
-      let x = Math.cos(decRad) * Math.cos(raRad);
-      let y = Math.sin(decRad);
-      let z = Math.cos(decRad) * Math.sin(raRad);
-      const len = Math.sqrt(x * x + y * y + z * z);
-      x *= radius / len;
-      y *= radius / len;
-      z *= radius / len;
-      return { name: s.name, position: [x, y, z], info: s.info };
-    });
-    group.add(createConstellation(name, starObjs));
-  }
-  return group;
-}
+// export function createConstellationSphere(radius = 350) {
+//   const group = new THREE.Group();
+//   for (const { name, stars } of realConstellations) {
+//     const starObjs = stars.map(s => {
+//       const raRad = s.ra * deg;
+//       const decRad = s.dec * deg;
+//       let x = Math.cos(decRad) * Math.cos(raRad);
+//       let y = Math.sin(decRad);
+//       let z = Math.cos(decRad) * Math.sin(raRad);
+//       const len = Math.sqrt(x * x + y * y + z * z);
+//       x *= radius / len;
+//       y *= radius / len;
+//       z *= radius / len;
+//       return { name: s.name, position: [x, y, z], info: s.info };
+//     });
+//     group.add(createConstellation(name, starObjs));
+//   }
+//   return group;
+// }

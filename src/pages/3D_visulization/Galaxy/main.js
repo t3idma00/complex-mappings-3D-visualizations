@@ -12,7 +12,7 @@ import {
 import { planetInfo, Constellations } from './planetinfo.js';
 import { setupControls, updateSpacecraftMovement, onShoot } from './control.js';
 
-import { createConstellationSphere } from './constellations.js';
+// import { createConstellationSphere } from './constellations.js';
 import { setupPlanetLanding } from './setupPlanetLanding.js';
 
 
@@ -63,7 +63,7 @@ ringGalaxies.forEach((r, i) => {
 const starField = createTwinklingStars(4000, 300);
 scene.add(starField);
 
-scene.add(createConstellationSphere());
+// scene.add(createConstellationSphere());
 
 const spacecraft = createSpacecraft();
 scene.add(spacecraft);
@@ -281,7 +281,7 @@ planets.forEach(planet => {
   panel.appendChild(group);
 });
 
-// === Add Sun Mass Control ===
+// Add Sun Mass Control 
 const sunGroup = document.createElement('div');
 sunGroup.className = 'planet-group';
 
