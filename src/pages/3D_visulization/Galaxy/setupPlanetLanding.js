@@ -169,88 +169,103 @@ export function setupPlanetLanding(scene, camera, controls, planets, renderer) {
   }
 
   function createSkybox(planetName) {
-    const group = new THREE.Group();
+  const group = new THREE.Group();
 
-    if (planetName === 'earth') {
-      const skyGeo = new THREE.SphereGeometry(48, 128, 64);
-      const skyMat = new THREE.ShaderMaterial({
-        side: THREE.BackSide,
-        uniforms: {
-          topColor: { value: new THREE.Color('#0c2b5a') },
-          bottomColor: { value: new THREE.Color('#104f91') },
-          offset: { value: 50 },
-          exponent: { value: 0.6 }
-        },
-        vertexShader: `
-          varying vec3 vWorldPosition;
-          void main() {
-            vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-            vWorldPosition = worldPosition.xyz;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform vec3 topColor;
-          uniform vec3 bottomColor;
-          uniform float offset;
-          uniform float exponent;
-          varying vec3 vWorldPosition;
-          void main() {
-            float h = normalize(vWorldPosition + offset).y;
-            gl_FragColor = vec4(mix(bottomColor, topColor, pow(max(h, 0.0), exponent)), 1.0);
-          }
-        `
-      });
+  const skyColors = {
+    earth:   { top: '#0c2b5a', bottom: '#104f91' },
+    mars:    { top: '#3b1f0f', bottom: '#703c22' },
+    venus:   { top: '#473323', bottom: '#bb9c4a' },
+    jupiter: { top: '#1b1a34', bottom: '#4e4a80' },
+    saturn:  { top: '#2d2b40', bottom: '#aa95d3' },
+    uranus:  { top: '#153544', bottom: '#88cde4' },
+    neptune: { top: '#0b2447', bottom: '#2a64a6' },
+    mercury: { top: '#1a1a1a', bottom: '#4a4a4a' },
+    default: { top: '#0c2b5a', bottom: '#104f91' }
+  };
 
-      const sky = new THREE.Mesh(skyGeo, skyMat);
-      sky.rotation.x = Math.PI / 2;
-      group.add(sky);
+  const { top, bottom } = skyColors[planetName] || skyColors.default;
 
-      const directions = ['NORTH', 'NORTHEAST', 'EAST', 'SOUTHEAST', 'SOUTH', 'SOUTHWEST', 'WEST', 'NORTHWEST'];
-      directions.forEach((dir, i) => {
-        const angle = (i / directions.length) * Math.PI * 2;
-        const x = Math.sin(angle) * 42;
-        const z = Math.cos(angle) * 42;
-        const sprite = createTextSprite(dir);
-        sprite.position.set(x, 1.5, z);
-        group.add(sprite);
-      });
-      group.rotation.y = Math.PI;
+  const skyGeo = new THREE.SphereGeometry(48, 128, 64);
+  const skyMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: {
+      topColor: { value: new THREE.Color(top) },
+      bottomColor: { value: new THREE.Color(bottom) },
+      offset: { value: 50 },
+      exponent: { value: 0.6 }
+    },
+    vertexShader: `
+      varying vec3 vWorldPosition;
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 topColor;
+      uniform vec3 bottomColor;
+      uniform float offset;
+      uniform float exponent;
+      varying vec3 vWorldPosition;
+      void main() {
+        float h = normalize(vWorldPosition + offset).y;
+        gl_FragColor = vec4(mix(bottomColor, topColor, pow(max(h, 0.0), exponent)), 1.0);
+      }
+    `
+  });
 
-      realConstellations.forEach(({ name, stars }) => {
-        const starObjs = stars.map(s => {
-          const raRad = s.ra * Math.PI / 180;
-          const decRad = s.dec * Math.PI / 180;
-          const radius = 46;
-          let x = Math.cos(decRad) * Math.cos(raRad);
-          let y = Math.sin(decRad);
-          let z = Math.cos(decRad) * Math.sin(raRad);
-          const len = Math.sqrt(x * x + y * y + z * z);
-          x *= radius / len;
-          y *= radius / len;
-          z *= radius / len;
-          return { name: s.name, position: [x, y, z], info: s.info };
-        });
+  const sky = new THREE.Mesh(skyGeo, skyMat);
+  sky.rotation.x = Math.PI / 2;
+  group.add(sky);
 
-        const constellation = createConstellation(name, starObjs);
-        group.add(constellation);
+ if (planetName === 'earth') {
+  const directions = ['NORTH', 'NORTHEAST', 'EAST', 'SOUTHEAST', 'SOUTH', 'SOUTHWEST', 'WEST', 'NORTHWEST'];
+  directions.forEach((dir, i) => {
+    const angle = (i / directions.length) * Math.PI * 2;
+    const x = Math.sin(angle) * 42;
+    const z = Math.cos(angle) * 42;
+    const sprite = createTextSprite(dir);
+    sprite.position.set(x, 1.5, z);
+    group.add(sprite);
+  });
+}
 
-        if (starObjs.length > 0) {
-          const avg = starObjs.reduce((acc, s) => {
-            acc.x += s.position[0];
-            acc.y += s.position[1];
-            acc.z += s.position[2];
-            return acc;
-          }, { x: 0, y: 0, z: 0 });
+  group.rotation.y = Math.PI;
 
-          const n = starObjs.length;
-          const label = createTextSprite(name);
-          label.position.set(avg.x / n, avg.y / n + 1.5, avg.z / n);
-          group.add(label);
-        }
-      });
+  realConstellations.forEach(({ name, stars }) => {
+    const starObjs = stars.map(s => {
+      const raRad = s.ra * Math.PI / 180;
+      const decRad = s.dec * Math.PI / 180;
+      const radius = 46;
+      let x = Math.cos(decRad) * Math.cos(raRad);
+      let y = Math.sin(decRad);
+      let z = Math.cos(decRad) * Math.sin(raRad);
+      const len = Math.sqrt(x * x + y * y + z * z);
+      x *= radius / len;
+      y *= radius / len;
+      z *= radius / len;
+      return { name: s.name, position: [x, y, z], info: s.info };
+    });
+
+    const constellation = createConstellation(name, starObjs);
+    group.add(constellation);
+
+    if (starObjs.length > 0) {
+      const avg = starObjs.reduce((acc, s) => {
+        acc.x += s.position[0];
+        acc.y += s.position[1];
+        acc.z += s.position[2];
+        return acc;
+      }, { x: 0, y: 0, z: 0 });
+
+      const n = starObjs.length;
+      const label = createTextSprite(name);
+      label.position.set(avg.x / n, avg.y / n + 1.5, avg.z / n);
+      group.add(label);
     }
+  });
 
-    return group;
-  }
+  return group;
+}
 }

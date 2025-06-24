@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 
 const textureLoader = new THREE.TextureLoader();
+const orbitSpeedFactor = 0.5; 
 
 export function createPhysicsWorld() {
   const world = new CANNON.World();
@@ -47,7 +48,8 @@ export function createSolarSystemWithPhysics(scene, world) {
     { name: 'neptune', texture: '2k_neptune.jpg', size: 1.5, orbit: 44, mass: 17 }
   ];
 
-  const G = 1;
+
+  const G = 1 * orbitSpeedFactor;
 
   function setCircularOrbit(body, centerMass, radius) {
     const angle = 0;
@@ -55,7 +57,7 @@ export function createSolarSystemWithPhysics(scene, world) {
     const z = Math.sin(angle) * radius;
     body.position.set(x, 0, z);
 
-    const speed = Math.sqrt((G * centerMass) / radius);
+    const speed = Math.sqrt((G * centerMass) / radius) ;
     const vx = -Math.sin(angle) * speed;
     const vz = Math.cos(angle) * speed;
     body.velocity.set(vx, 0, vz);
@@ -114,7 +116,8 @@ export function createSolarSystemWithPhysics(scene, world) {
 }
 
 export function updatePhysics(planets, sunBody) {
-  const G = 1;
+const G = 1 * orbitSpeedFactor;
+;
   for (const planet of planets) {
     const r = new CANNON.Vec3().copy(sunBody.position).vsub(planet.body.position);
     const distanceSq = r.lengthSquared();
