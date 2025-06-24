@@ -8,15 +8,27 @@ export function createConstellation(name, starsData, color = 0xffffff) {
   const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 });
   const geo = new THREE.SphereGeometry(0.3, 8, 8);
 
-  starsData.forEach(data => {
-    const [x, y, z] = data.position;
-    const star = new THREE.Mesh(geo, mat.clone());
-    star.position.set(x, y, z);
-    star.name = data.name;
-    star.userData.info = data.info || '';
-    star.userData.constellation = name;
-    group.add(star);
+starsData.forEach(data => {
+  const [x, y, z] = data.position;
+
+  const starGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(x, y, z)
+  ]);
+
+  const starMat = new THREE.PointsMaterial({
+    size: 1.0,
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.95,
+    depthWrite: false
   });
+
+  const star = new THREE.Points(starGeo, starMat);
+  star.name = data.name;
+  star.userData.info = data.info || '';
+  star.userData.constellation = name;
+  group.add(star);
+});
 
  for (let i = 0; i < starsData.length - 1; i++) {
   const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -165,22 +177,4 @@ export const realConstellations = [
 ];
 
 
-// export function createConstellationSphere(radius = 350) {
-//   const group = new THREE.Group();
-//   for (const { name, stars } of realConstellations) {
-//     const starObjs = stars.map(s => {
-//       const raRad = s.ra * deg;
-//       const decRad = s.dec * deg;
-//       let x = Math.cos(decRad) * Math.cos(raRad);
-//       let y = Math.sin(decRad);
-//       let z = Math.cos(decRad) * Math.sin(raRad);
-//       const len = Math.sqrt(x * x + y * y + z * z);
-//       x *= radius / len;
-//       y *= radius / len;
-//       z *= radius / len;
-//       return { name: s.name, position: [x, y, z], info: s.info };
-//     });
-//     group.add(createConstellation(name, starObjs));
-//   }
-//   return group;
-// }
+
