@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Moonbase Defender</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      color: white;
+      pointer-events: none;
+      font-family: monospace;
+      z-index: 999;
+    }
+  </style>
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+      "three/addons/controls/PointerLockControls.js": "https://unpkg.com/three@0.158.0/examples/jsm/controls/PointerLockControls.js"
+    }
+  }
+  </script>
+
+  <script type="module" src="main.js"></script>
+  <div id="crosshair">+</div>
+</body>
+</html>
