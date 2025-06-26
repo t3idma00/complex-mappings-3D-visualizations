@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-import { setupControls } from './controls.js';
 import { GLTFLoader } from 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js';
+import { AnimationMixer } from 'three';
+import { setupControls } from './controls.js';
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0.03);
@@ -14,9 +15,12 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 scene.add(new THREE.HemisphereLight(0xaaaaaa, 0x000000, 1));
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
 dirLight.position.set(10, 20, 10);
 scene.add(dirLight);
+
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+scene.add(ambientLight);
 
 // Moon terrain
 const moonTexture = new THREE.TextureLoader().load('./assets/textures/moon.jpg');
@@ -29,6 +33,14 @@ const ground = new THREE.Mesh(
 );
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
+
+// Controls
+const controls = new PointerLockControls(camera, renderer.domElement);
+scene.add(controls.getObject());
+const rockColliders = [];
+setupControls(controls, camera, rockColliders);
+
+document.body.addEventListener('click', () => controls.lock());
 
 // Gun setup
 let muzzle = null;
@@ -45,19 +57,10 @@ loader.load('./assets/models/gun.glb', (gltf) => {
   camera.add(gunModel);
 }, undefined, console.error);
 
-// Controls
-const controls = new PointerLockControls(camera, renderer.domElement);
-scene.add(controls.getObject());
-
-const rockColliders = [];
-setupControls(controls, camera, rockColliders);
-
-document.body.addEventListener('click', () => controls.lock());
-
 // Bullets
 const bullets = [];
+const enemyBullets = [];
 const shootDirection = new THREE.Vector3();
-
 const listener = new THREE.AudioListener();
 camera.add(listener);
 const shootSound = new THREE.Audio(listener);
@@ -88,28 +91,7 @@ window.addEventListener('click', () => {
   shootSound.play();
 });
 
-function animate() {
-  requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
-
-  bullets.forEach((bullet, i) => {
-    bullet.position.add(bullet.userData.velocity);
-    if (bullet.position.length() > 100) {
-      scene.remove(bullet);
-      bullets.splice(i, 1);
-    }
-  });
-}
-animate();
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// Rocks + Big Cylinder Colliders
+// Rocks + red cylinder colliders
 const rockPositions = [
   { x: 10, y: 0, z: -15 },
   { x: -20, y: 0, z: 5 },
@@ -120,29 +102,117 @@ const rockPositions = [
 const rockLoader = new GLTFLoader();
 rockLoader.load('./assets/models/rock.glb', (gltf) => {
   const rockModel = gltf.scene;
-  rockModel.traverse(child => {
-    if (child.isMesh) {
-      child.material = new THREE.MeshStandardMaterial({ color: 0x888888 });
-    }
-  });
-
   rockPositions.forEach(pos => {
-    // Add rock
     const rock = rockModel.clone(true);
-    rock.position.set(pos.x, 0.25, pos.z); // slightly lifted
+    rock.position.set(pos.x, 0.25, pos.z);
     rock.scale.setScalar(0.5);
     rock.rotation.y = Math.random() * Math.PI * 2;
     scene.add(rock);
 
-    // Add large visible red cylinder
     const cylinder = new THREE.Mesh(
-      new THREE.CylinderGeometry(7,7 , 8, 5),
+      new THREE.CylinderGeometry(7, 7, 8, 5),
       new THREE.MeshStandardMaterial({ color: 0xff0000 })
     );
-    cylinder.position.set(pos.x, 2.5, pos.z); // center height
+    cylinder.position.set(pos.x, 2.5, pos.z);
     scene.add(cylinder);
 
-    // Use for collision
-rockColliders.push({ position: cylinder.position.clone(), radius: 7 }); // same as cylinder radius
+    rockColliders.push({ position: cylinder.position.clone(), radius: 7 });
   });
+});
+
+// Enemy + animation + follow player
+let enemy;
+let enemyMixer = null;
+const enemyLoader = new GLTFLoader();
+enemyLoader.load('./assets/models/enemy1.glb', (gltf) => {
+  enemy = gltf.scene;
+  enemy.scale.set(0.1, 0.1, 0.1);
+  enemy.position.set(5, 0, -10);
+  enemy.rotation.y = Math.PI;
+  scene.add(enemy);
+
+  enemyMixer = new AnimationMixer(enemy);
+  const clip = gltf.animations[0];
+  const action = enemyMixer.clipAction(clip);
+  action.play();
+
+  // Shoot from enemy eye
+  setInterval(() => {
+    if (!enemy) return;
+
+    const eyePosition = enemy.position.clone();
+    eyePosition.y += 5;
+    eyePosition.z -= 0.1;
+
+    const direction = controls.getObject().position.clone().sub(eyePosition).normalize();
+
+    const bulletMaterial = new THREE.MeshStandardMaterial({
+      color: 0xff0000,
+      emissive: 0xff0000,
+      emissiveIntensity: 5,
+      metalness: 0.8,
+      roughness: 0.1
+    });
+
+    const bullet = new THREE.Mesh(
+      new THREE.SphereGeometry(0.07, 12, 12),
+      bulletMaterial
+    );
+
+    bullet.position.copy(eyePosition);
+    bullet.userData.velocity = direction.multiplyScalar(0.08);
+    scene.add(bullet);
+    enemyBullets.push(bullet);
+  }, 2000);
+});
+
+// Animation loop
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  controls.update();
+
+  if (enemyMixer) enemyMixer.update(delta);
+
+  if (enemy) {
+    const playerPos = controls.getObject().position.clone();
+    const dir = playerPos.clone().sub(enemy.position);
+    dir.y = 0;
+    if (dir.length() > 1) {
+      dir.normalize();
+      enemy.position.add(dir.multiplyScalar(0.02));
+      enemy.lookAt(playerPos.x, enemy.position.y, playerPos.z);
+    }
+  }
+
+  bullets.forEach((bullet, i) => {
+    bullet.position.add(bullet.userData.velocity);
+    if (bullet.position.length() > 100) {
+      scene.remove(bullet);
+      bullets.splice(i, 1);
+    }
+  });
+
+  enemyBullets.forEach((bullet, i) => {
+    bullet.position.add(bullet.userData.velocity);
+    if (bullet.position.distanceTo(controls.getObject().position) < 0.6) {
+      console.log('💥 Player hit by enemy!');
+      scene.remove(bullet);
+      enemyBullets.splice(i, 1);
+    }
+    if (bullet.position.length() > 100) {
+      scene.remove(bullet);
+      enemyBullets.splice(i, 1);
+    }
+  });
+
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
