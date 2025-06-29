@@ -1,4 +1,9 @@
+// map.js
 import * as THREE from 'three';
+import { GLTFLoader } from 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js';
+
+const crystalLoader = new GLTFLoader();
+export const crystalData = []; // will hold {x, z, object, activated}
 
 export function createMoonZones(scene, texturePath, rockColliders) {
   const loader = new THREE.TextureLoader();
@@ -28,7 +33,9 @@ export function createMoonZones(scene, texturePath, rockColliders) {
 
     if (name === "Crater Valley") addCraters(scene, x, z, rockColliders);
     if (name === "Ruined Base") addBrokenStructures(scene, x, z);
-    if (name === "Power Hub") addEnergyNode(scene, x, z);
+    if (["Landing Zone", "Crater Valley", "Ruined Base"].includes(name)) {
+      addCrystal(scene, x + 50, z - 50);
+    }
   });
 
   addZoneBridges(scene);
@@ -55,7 +62,7 @@ function addCraters(scene, baseX, baseZ, rockColliders) {
     const z = baseZ + (Math.random() - 0.5) * 400;
     const crater = new THREE.Mesh(
       new THREE.CylinderGeometry(10, 15, 2, 24, 1, true),
-      new THREE.MeshStandardMaterial({ color: 0x222222, wireframe: false })
+      new THREE.MeshStandardMaterial({ color: 0x222222 })
     );
     crater.rotation.x = Math.PI / 2;
     crater.position.set(x, 0.1, z);
@@ -77,13 +84,14 @@ function addBrokenStructures(scene, baseX, baseZ) {
   }
 }
 
-function addEnergyNode(scene, x, z) {
-  const core = new THREE.Mesh(
-    new THREE.SphereGeometry(5, 16, 16),
-    new THREE.MeshStandardMaterial({ color: 0x00ffcc, emissive: 0x00ffff, emissiveIntensity: 1 })
-  );
-  core.position.set(x + 100, 5, z - 100);
-  scene.add(core);
+function addCrystal(scene, x, z) {
+  crystalLoader.load('./assets/models/crystal.glb', gltf => {
+    const crystal = gltf.scene;
+    crystal.scale.set(5, 5, 5);
+    crystal.position.set(x, 0, z);
+    scene.add(crystal);
+    crystalData.push({ x, z, object: crystal, activated: false });
+  });
 }
 
 function addZoneBridges(scene) {
@@ -91,20 +99,20 @@ function addZoneBridges(scene) {
     new THREE.BoxGeometry(40, 1, 500),
     new THREE.MeshStandardMaterial({ color: 0x777777 })
   );
-  bridge1.position.set(250, 0.5, 0); // Between Landing and Crater Valley
+  bridge1.position.set(250, 0.5, 0);
   scene.add(bridge1);
 
   const bridge2 = new THREE.Mesh(
     new THREE.BoxGeometry(500, 1, 40),
     new THREE.MeshStandardMaterial({ color: 0x666666 })
   );
-  bridge2.position.set(0, 0.5, -250); // Between Landing and Ruined Base
+  bridge2.position.set(0, 0.5, -250);
   scene.add(bridge2);
 
   const bridge3 = new THREE.Mesh(
     new THREE.BoxGeometry(40, 1, 500),
     new THREE.MeshStandardMaterial({ color: 0x555555 })
   );
-  bridge3.position.set(500, 0.5, -250); // Between Crater Valley and Power Hub
+  bridge3.position.set(500, 0.5, -250);
   scene.add(bridge3);
 }

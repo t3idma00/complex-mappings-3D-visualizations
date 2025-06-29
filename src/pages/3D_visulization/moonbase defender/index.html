@@ -11,6 +11,8 @@
 
   <div id="health-bar-container">
   <div id="health-bar"></div>
+  <div id="activation-prompt">Press E to activate crystal</div>
+
 </div>
 
 
@@ -62,11 +64,29 @@
   position: fixed;
   bottom: 20px;
   left: 20px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
   border: 2px solid white;
-  background: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.6);
   z-index: 999;
 }
+
+#activation-prompt {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-size: 20px;
+  font-family: monospace;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 8px 14px;
+  border-radius: 6px;
+  display: none;
+  z-index: 1000;
+}
+
 
   </style>
 </body>

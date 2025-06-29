@@ -4,7 +4,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { GLTFLoader } from 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js';
 import { AnimationMixer, Box3 } from 'three';
 import { setupControls } from './controls.js';
-import { createMoonZones } from './map.js';
+import { createMoonZones, crystalData } from './map.js';
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0.03);
@@ -22,17 +22,16 @@ dirLight.position.set(10, 20, 10);
 scene.add(dirLight);
 scene.add(new THREE.AmbientLight(0xffffff, 1.0));
 
-// ✅ Define rockColliders before passing to createMoonZones
 const rockColliders = [];
 createMoonZones(scene, './assets/textures/moon.jpg', rockColliders);
 
-// Controls
 const controls = new PointerLockControls(camera, renderer.domElement);
 scene.add(controls.getObject());
 setupControls(controls, camera, rockColliders);
+const activationPrompt = document.getElementById('activation-prompt');
+
 document.body.addEventListener('click', () => controls.lock());
 
-// Gun setup
 let muzzle = null;
 new GLTFLoader().load('./assets/models/gun.glb', (gltf) => {
   const gunModel = gltf.scene;
@@ -45,7 +44,6 @@ new GLTFLoader().load('./assets/models/gun.glb', (gltf) => {
   camera.add(gunModel);
 });
 
-// Bullets
 const bullets = [];
 const enemyBullets = [];
 const shootDirection = new THREE.Vector3();
@@ -56,15 +54,6 @@ new THREE.AudioLoader().load('./assets/sounds/shoot.mp3', buffer => {
   shootSound.setBuffer(buffer);
   shootSound.setVolume(0.5);
 });
-
-let playerHealth = 20;
-function updateHealthBar() {
-  const healthBar = document.getElementById('health-bar');
-  const percentage = (playerHealth / 20) * 100;
-  healthBar.style.width = percentage + '%';
-  if (percentage < 40) healthBar.style.backgroundColor = 'orange';
-  if (percentage < 20) healthBar.style.backgroundColor = 'red';
-}
 
 window.addEventListener('click', () => {
   if (!controls.isLocked || !muzzle) return;
@@ -83,7 +72,15 @@ window.addEventListener('click', () => {
   shootSound.play();
 });
 
-// Enemies
+let playerHealth = 20;
+function updateHealthBar() {
+  const healthBar = document.getElementById('health-bar');
+  const percentage = (playerHealth / 20) * 100;
+  healthBar.style.width = percentage + '%';
+  if (percentage < 40) healthBar.style.backgroundColor = 'orange';
+  if (percentage < 20) healthBar.style.backgroundColor = 'red';
+}
+
 const enemies = [];
 function spawnEnemy(x, z) {
   new GLTFLoader().load('./assets/models/enemy1.glb', (gltf) => {
@@ -126,7 +123,48 @@ spawnEnemy(5, -10);
 spawnEnemy(-10, -10);
 spawnEnemy(0, -20);
 
-// Game loop
+let activatedCount = 0;
+const counterDiv = document.createElement('div');
+counterDiv.style.position = 'fixed';
+counterDiv.style.top = '20px';
+counterDiv.style.right = '20px';
+counterDiv.style.color = 'white';
+counterDiv.style.fontSize = '20px';
+counterDiv.style.zIndex = 1000;
+counterDiv.style.fontFamily = 'monospace';
+document.body.appendChild(counterDiv);
+function updateCrystalCounter() {
+  counterDiv.textContent = `Crystals Activated: ${activatedCount} / ${crystalData.length}`;
+}
+updateCrystalCounter();
+
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyE') {
+    crystalData.forEach(data => {
+      if (!data.activated && data.object.position.distanceTo(controls.getObject().position) < 6) {
+        data.activated = true;
+        activatedCount++;
+        updateCrystalCounter();
+
+        // Apply soft tint over original crystal meshes
+        data.object.traverse(child => {
+          if (child.isMesh) {
+            child.material = child.material.clone(); // prevent affecting others
+            child.material.color.set(0x00ff99);      // tint color
+            child.material.opacity = 0.6;            // semi-transparent
+            child.material.transparent = true;
+            child.material.emissive.set(0x00ff99);   // light glow
+            child.material.emissiveIntensity = 0.3;  // subtle
+          }
+        });
+      }
+    });
+  }
+});
+
+
+
+
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
@@ -156,7 +194,13 @@ function animate() {
         bullets.splice(i, 1);
         if (enemy.health <= 0) {
           enemy.traverse(child => {
-            if (child.isMesh) child.material.emissive = new THREE.Color(0xff0000);
+            if (child.isMesh) {
+              child.material.emissive = new THREE.Color(0x00ff00);
+              child.material.emissiveIntensity = 0.1;
+              child.material.color.set(0x66ff66);
+              child.material.metalness = 0.2;
+              child.material.roughness = 0.6;
+            }
           });
           setTimeout(() => { scene.remove(enemy); }, 1000);
         }
@@ -185,38 +229,56 @@ function animate() {
     }
   });
 
-
-function updateMinimap() {
   const canvas = document.getElementById('minimap');
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const mapSize = 500; // size of the moon map
+  const mapSize = 1000;
   const scale = canvas.width / mapSize;
-
-  // Center of minimap
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
 
-  // Draw player
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, canvas.width / 2 - 2, 0, Math.PI * 2);
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.clip();
+
   ctx.fillStyle = 'lime';
   ctx.beginPath();
-  ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
+  ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
   ctx.fill();
 
-  // Draw enemies
-  ctx.fillStyle = 'red';
-  enemies.forEach(enemy => {
-    if (!enemy) return;
-    const dx = (enemy.position.x - camera.position.x) * scale;
-    const dz = (enemy.position.z - camera.position.z) * scale;
+  ctx.fillStyle = 'limegreen';
+  crystalData.forEach(pos => {
+    const dx = (pos.x - camera.position.x) * scale;
+    const dz = (pos.z - camera.position.z) * scale;
     ctx.beginPath();
-    ctx.arc(centerX + dx, centerY + dz, 4, 0, Math.PI * 2);
+    ctx.arc(centerX + dx, centerY + dz, 5, 0, Math.PI * 2);
     ctx.fill();
   });
-}
 
+  ctx.fillStyle = 'cyan';
+  [
+    { name: 'Landing Zone', x: 0, z: 0 },
+    { name: 'Crater Valley', x: 500, z: 0 },
+    { name: 'Ruined Base', x: 0, z: -500 },
+    { name: 'Power Hub', x: 500, z: -500 }
+  ].forEach(zone => {
+    const dx = (zone.x - camera.position.x) * scale;
+    const dz = (zone.z - camera.position.z) * scale;
+    ctx.beginPath();
+    ctx.arc(centerX + dx, centerY + dz, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
 
+  let nearCrystal = false;
+crystalData.forEach(data => {
+  if (!data.activated && data.object.position.distanceTo(controls.getObject().position) < 6) {
+    nearCrystal = true;
+  }
+});
+activationPrompt.style.display = nearCrystal ? 'block' : 'none';
 
 
   renderer.render(scene, camera);
