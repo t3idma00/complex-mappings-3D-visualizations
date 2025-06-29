@@ -26,6 +26,8 @@
 
   <script type="module" src="./main.js"></script>
 
+  <canvas id="minimap" width="200" height="200"></canvas>
+
   <style>
     #crosshair {
       position: fixed;
@@ -54,6 +56,16 @@
   width: 100%;
   background-color: limegreen;
   transition: width 0.2s ease;
+}
+
+#minimap {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  border-radius: 50%;
+  border: 2px solid white;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 999;
 }
 
   </style>

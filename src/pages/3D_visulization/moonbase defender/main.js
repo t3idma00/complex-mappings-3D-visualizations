@@ -185,6 +185,40 @@ function animate() {
     }
   });
 
+
+function updateMinimap() {
+  const canvas = document.getElementById('minimap');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const mapSize = 500; // size of the moon map
+  const scale = canvas.width / mapSize;
+
+  // Center of minimap
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+
+  // Draw player
+  ctx.fillStyle = 'lime';
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw enemies
+  ctx.fillStyle = 'red';
+  enemies.forEach(enemy => {
+    if (!enemy) return;
+    const dx = (enemy.position.x - camera.position.x) * scale;
+    const dz = (enemy.position.z - camera.position.z) * scale;
+    ctx.beginPath();
+    ctx.arc(centerX + dx, centerY + dz, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+
+
+
   renderer.render(scene, camera);
 }
 animate();
