@@ -116,3 +116,133 @@ function addZoneBridges(scene) {
   bridge3.position.set(500, 0.5, -250);
   scene.add(bridge3);
 }
+
+
+
+export function addStarDome(scene, camera) {
+  const radius = 5000;
+  
+  // Create starfield
+  const starsGeometry = new THREE.BufferGeometry();
+  const twinklingStarsGeometry = new THREE.BufferGeometry();
+  
+  const starPositions = [];
+  const twinklingStarPositions = [];
+  const starColors = [];
+  const twinklingStarColors = [];
+  const twinklingAlphas = []; // Separate array for alpha values
+  const color = new THREE.Color();
+
+  // Generate random stars (10000 normal, 500 twinkling)
+  for (let i = 0; i < 10500; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos((Math.random() * 2) - 1);
+    const x = radius * Math.sin(phi) * Math.cos(theta);
+    const y = radius * Math.sin(phi) * Math.sin(theta);
+    const z = radius * Math.cos(phi);
+    
+    // Slightly brighter and larger for twinkling stars
+    const isTwinkling = true; 
+    const lightness = isTwinkling ? 0.95 : 0.9 + Math.random() * 0.1;
+    const hue = Math.random() * 0.1;
+    const saturation = Math.random() * 0.2;
+    color.setHSL(hue, saturation, lightness);
+    
+    if (isTwinkling) {
+      twinklingStarPositions.push(x, y, z);
+      twinklingStarColors.push(color.r, color.g, color.b);
+      twinklingAlphas.push(1); // Initial alpha
+    } else {
+      starPositions.push(x, y, z);
+      starColors.push(color.r, color.g, color.b);
+    }
+  }
+
+  // Regular stars
+  starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+  starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
+
+  const starMaterial = new THREE.PointsMaterial({
+    size: 1.2,
+    sizeAttenuation: false,
+    vertexColors: true,
+    transparent: true,
+    opacity: 1,
+    fog: false
+  });
+
+  const stars = new THREE.Points(starsGeometry, starMaterial);
+  stars.renderOrder = -1000;
+  scene.add(stars);
+
+  // Twinkling stars
+  twinklingStarsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(twinklingStarPositions, 3));
+  twinklingStarsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(twinklingStarColors, 3));
+  
+  // Create a separate attribute for alphas
+  const alphaAttribute = new THREE.Float32BufferAttribute(twinklingAlphas, 1);
+  twinklingStarsGeometry.setAttribute('alpha', alphaAttribute);
+
+  const twinklingStarMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    time: { value: 0.0 }
+  },
+  vertexShader: `
+    attribute float alpha;
+    varying float vAlpha;
+    void main() {
+      vAlpha = alpha;
+      gl_PointSize = 2.0;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    varying float vAlpha;
+    void main() {
+      float twinkle = 0.5 + 0.5 * sin(vAlpha * 10.0);
+      gl_FragColor = vec4(vec3(1.0), twinkle);
+    }
+  `,
+  transparent: true,
+  depthWrite: false
+});
+
+  const twinklingStars = new THREE.Points(twinklingStarsGeometry, twinklingStarMaterial);
+  twinklingStars.renderOrder = -999;
+  scene.add(twinklingStars);
+
+  // Animation data for twinkling
+  const twinklingData = [];
+  for (let i = 0; i < twinklingStarPositions.length / 3; i++) {
+    twinklingData.push({
+      speed: 0.5 + Math.random() * 2, // Random twinkle speed
+      offset: Math.random() * Math.PI * 2, // Random phase offset
+      baseSize: 1.5 + Math.random() * 1.0 // Random base size
+    });
+  }
+
+  // Return object with update function
+  return {
+    position: stars.position,
+    copy: stars.position.copy.bind(stars.position),
+    update: (time) => {
+      // Animate twinkling stars
+      const alphaAttrib = twinklingStarsGeometry.getAttribute('alpha');
+      const sizeArray = new Array(twinklingStarPositions.length / 3).fill(0);
+      
+      for (let i = 0; i < twinklingData.length; i++) {
+        const t = time * twinklingData[i].speed + twinklingData[i].offset;
+        const opacity = 0.5 + 0.5 * Math.sin(t); // Oscillates between 0 and 1
+        
+        // Update alpha
+        alphaAttrib.setX(i, opacity);
+        
+        // Update size
+        sizeArray[i] = twinklingData[i].baseSize * (0.8 + 0.4 * Math.sin(t * 1.3));
+      }
+      
+      alphaAttrib.needsUpdate = true;
+      twinklingStarMaterial.size = sizeArray.reduce((a, b) => a + b, 0) / sizeArray.length;
+    }
+  };
+}
