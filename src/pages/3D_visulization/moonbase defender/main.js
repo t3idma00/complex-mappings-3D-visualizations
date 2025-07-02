@@ -20,15 +20,13 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000);
 document.body.appendChild(renderer.domElement);
 
-
-
-const hemiLight = new THREE.HemisphereLight(0xddddff, 0x222233, 1.5); // brighter sky + ground
+const hemiLight = new THREE.HemisphereLight(0xddddff, 0x222233, 1.5);
 scene.add(hemiLight);
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // higher intensity
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.8); // stronger sunlight
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
 dirLight.position.set(20, 100, -50);
 dirLight.castShadow = true;
 scene.add(dirLight);
@@ -144,9 +142,9 @@ function spawnAirship(x, z) {
   });
 }
 
-spawnEnemy(5, -10);
-spawnEnemy(500, -500);
-spawnEnemy(-400, 300);
+spawnEnemy(10, -10);
+spawnEnemy(-10, -10);
+spawnEnemy(0, -30);
 
 spawnAirship(0, -20);
 spawnAirship(10, -30);
@@ -212,18 +210,48 @@ function animate() {
 
   bullets.forEach((b, i) => {
     b.position.add(b.userData.velocity);
+
     enemies.forEach((e) => {
       if (e.health > 0 && new Box3().setFromObject(e).containsPoint(b.position)) {
         e.health--;
         scene.remove(b);
         bullets.splice(i, 1);
         if (e.health <= 0) {
-          e.traverse(c => c.isMesh && Object.assign(c.material, { emissive: new THREE.Color(0x00ff00), emissiveIntensity: 0.1, color: new THREE.Color(0x66ff66), metalness: 0.2, roughness: 0.6 }));
+          e.traverse(c => c.isMesh && Object.assign(c.material, {
+            emissive: new THREE.Color(0x00ff00),
+            emissiveIntensity: 0.1,
+            color: new THREE.Color(0x66ff66),
+            metalness: 0.2,
+            roughness: 0.6
+          }));
           setTimeout(() => scene.remove(e), 1000);
         }
       }
     });
-    if (b.position.length() > 100) scene.remove(b), bullets.splice(i, 1);
+
+    airships.forEach((ship) => {
+      if (ship.health > 0 && new Box3().setFromObject(ship).containsPoint(b.position)) {
+        ship.health--;
+        scene.remove(b);
+        bullets.splice(i, 1);
+        if (ship.health <= 0) {
+          ship.traverse(c => {
+            if (c.isMesh) {
+              c.material = c.material.clone();
+              c.material.color.set(0x882222);
+              c.material.emissive.set(0xff0000);
+              c.material.emissiveIntensity = 0.4;
+            }
+          });
+          setTimeout(() => scene.remove(ship), 1500);
+        }
+      }
+    });
+
+    if (b.position.length() > 100) {
+      scene.remove(b);
+      bullets.splice(i, 1);
+    }
   });
 
   enemyBullets.forEach((b, i) => {
@@ -234,7 +262,10 @@ function animate() {
       scene.remove(b);
       enemyBullets.splice(i, 1);
       if (playerHealth <= 0) alert('Game Over!'), window.location.reload();
-    } else if (b.position.length() > 100) scene.remove(b), enemyBullets.splice(i, 1);
+    } else if (b.position.length() > 100) {
+      scene.remove(b);
+      enemyBullets.splice(i, 1);
+    }
   });
 
   airshipBombs.forEach((b, i) => {
@@ -249,6 +280,67 @@ function animate() {
       }
     }
   });
+
+  // --- MINIMAP ---
+  const canvas = document.getElementById('minimap');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const mapSize = 1000;
+  const scale = canvas.width / mapSize;
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, canvas.width / 2 - 2, 0, Math.PI * 2);
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.clip();
+
+  ctx.fillStyle = 'lime';
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = 'red';
+  enemies.forEach(e => {
+    const dx = (e.position.x - camera.position.x) * scale;
+    const dz = (e.position.z - camera.position.z) * scale;
+    ctx.beginPath();
+    ctx.arc(centerX + dx, centerY + dz, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = 'limegreen';
+  crystalData.forEach(pos => {
+    const dx = (pos.x - camera.position.x) * scale;
+    const dz = (pos.z - camera.position.z) * scale;
+    ctx.beginPath();
+    ctx.arc(centerX + dx, centerY + dz, 5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = 'cyan';
+  [
+    { name: 'Landing Zone', x: 0, z: 0 },
+    { name: 'Crater Valley', x: 500, z: 0 },
+    { name: 'Ruined Base', x: 0, z: -500 },
+    { name: 'Power Hub', x: 500, z: -500 }
+  ].forEach(zone => {
+    const dx = (zone.x - camera.position.x) * scale;
+    const dz = (zone.z - camera.position.z) * scale;
+    ctx.beginPath();
+    ctx.arc(centerX + dx, centerY + dz, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  let nearCrystal = false;
+  crystalData.forEach(data => {
+    if (!data.activated && data.object.position.distanceTo(controls.getObject().position) < 6) {
+      nearCrystal = true;
+    }
+  });
+  activationPrompt.style.display = nearCrystal ? 'block' : 'none';
 
   renderer.render(scene, camera);
 }
