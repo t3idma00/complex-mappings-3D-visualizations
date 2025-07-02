@@ -1,15 +1,13 @@
-// --- main.js ---
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { GLTFLoader } from 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js';
-
 import { AnimationMixer, Box3 } from 'three';
 import { setupControls } from './controls.js';
 import { createMoonZones, crystalData, addStarDome } from './map.js';
+import { turretMixers } from './map.js';
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0.01);
-
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 8000);
 camera.position.y = 2;
 
@@ -20,11 +18,8 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000);
 document.body.appendChild(renderer.domElement);
 
-const hemiLight = new THREE.HemisphereLight(0xddddff, 0x222233, 1.5);
-scene.add(hemiLight);
-
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-scene.add(ambientLight);
+scene.add(new THREE.HemisphereLight(0xddddff, 0x222233, 1.5));
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
 const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
 dirLight.position.set(20, 100, -50);
@@ -41,8 +36,6 @@ createMoonZones(scene, './assets/textures/moon.jpg', rockColliders);
 const controls = new PointerLockControls(camera, renderer.domElement);
 scene.add(controls.getObject());
 setupControls(controls, camera, rockColliders);
-const activationPrompt = document.getElementById('activation-prompt');
-
 document.body.addEventListener('click', () => controls.lock());
 
 let muzzle = null;
@@ -72,7 +65,10 @@ window.addEventListener('click', () => {
   const muzzleWorld = new THREE.Vector3();
   muzzle.getWorldPosition(muzzleWorld);
   camera.getWorldDirection(shootDirection);
-  const bullet = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+  const bullet = new THREE.Mesh(
+    new THREE.SphereGeometry(0.05, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0x00ffff })
+  );
   bullet.position.copy(muzzleWorld);
   bullet.userData.velocity = shootDirection.clone().multiplyScalar(0.8);
   scene.add(bullet);
@@ -80,14 +76,6 @@ window.addEventListener('click', () => {
   if (shootSound.isPlaying) shootSound.stop();
   shootSound.play();
 });
-
-let playerHealth = 20;
-function updateHealthBar() {
-  const bar = document.getElementById('health-bar');
-  const percent = (playerHealth / 20) * 100;
-  bar.style.width = percent + '%';
-  bar.style.backgroundColor = percent < 20 ? 'red' : percent < 40 ? 'orange' : 'limegreen';
-}
 
 function spawnEnemy(x, z) {
   new GLTFLoader().load('./assets/models/enemy1.glb', (gltf) => {
@@ -108,7 +96,7 @@ function spawnEnemy(x, z) {
       const dir = controls.getObject().position.clone().sub(eye).normalize();
       const bullet = new THREE.Mesh(
         new THREE.SphereGeometry(0.07, 12, 12),
-        new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 5, metalness: 0.8, roughness: 0.1 })
+        new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 5 })
       );
       bullet.position.copy(eye);
       bullet.userData.velocity = dir.multiplyScalar(0.08);
@@ -142,13 +130,21 @@ function spawnAirship(x, z) {
   });
 }
 
+// Spawn enemies & airships
 spawnEnemy(10, -10);
 spawnEnemy(-10, -10);
 spawnEnemy(0, -30);
-
 spawnAirship(0, -20);
 spawnAirship(10, -30);
 spawnAirship(-10, -30);
+
+let playerHealth = 20;
+function updateHealthBar() {
+  const bar = document.getElementById('health-bar');
+  const percent = (playerHealth / 20) * 100;
+  bar.style.width = percent + '%';
+  bar.style.backgroundColor = percent < 20 ? 'red' : percent < 40 ? 'orange' : 'limegreen';
+}
 
 let activatedCount = 0;
 const counterDiv = document.createElement('div');
@@ -180,6 +176,21 @@ document.addEventListener('keydown', (e) => {
     });
   }
 });
+
+// Minimap background textures
+const zoneImages = {
+  'Landing Zone': Object.assign(new Image(), { src: './assets/textures/moon.jpg' }),
+  'Crater Valley': Object.assign(new Image(), { src: './assets/textures/crater.jpg' }),
+  'Ruined Base': Object.assign(new Image(), { src: './assets/textures/ruined.jpg' }),
+  'Power Hub': Object.assign(new Image(), { src: './assets/textures/moon.jpg' })
+};
+
+const zoneData = [
+  { name: 'Landing Zone', x: 0, z: 0 },
+  { name: 'Crater Valley', x: 500, z: 0 },
+  { name: 'Ruined Base', x: 0, z: -500 },
+  { name: 'Power Hub', x: 500, z: -500 }
+];
 
 const clock = new THREE.Clock();
 function animate() {
@@ -270,14 +281,14 @@ function animate() {
 
   airshipBombs.forEach((b, i) => {
     b.position.add(b.userData.velocity);
-    if (b.position.y < 0.1 || b.position.distanceTo(controls.getObject().position) < 1) {
-      scene.remove(b);
-      airshipBombs.splice(i, 1);
+    if (b.position.y < 0.1 || b.position.distanceTo(controls.getObject().position) < 1.5) {
       if (b.position.distanceTo(controls.getObject().position) < 1.5) {
         playerHealth -= 2;
         updateHealthBar();
         if (playerHealth <= 0) alert('Game Over!'), window.location.reload();
       }
+      scene.remove(b);
+      airshipBombs.splice(i, 1);
     }
   });
 
@@ -289,6 +300,16 @@ function animate() {
   const scale = canvas.width / mapSize;
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
+
+  zoneData.forEach(zone => {
+    const img = zoneImages[zone.name];
+    if (img.complete) {
+      const zoneSize = 500 * scale;
+      const dx = (zone.x - camera.position.x) * scale + centerX - zoneSize / 2;
+      const dz = (zone.z - camera.position.z) * scale + centerY - zoneSize / 2;
+      ctx.drawImage(img, dx, dz, zoneSize, zoneSize);
+    }
+  });
 
   ctx.beginPath();
   ctx.arc(centerX, centerY, canvas.width / 2 - 2, 0, Math.PI * 2);
@@ -320,26 +341,16 @@ function animate() {
     ctx.fill();
   });
 
-  ctx.fillStyle = 'cyan';
-  [
-    { name: 'Landing Zone', x: 0, z: 0 },
-    { name: 'Crater Valley', x: 500, z: 0 },
-    { name: 'Ruined Base', x: 0, z: -500 },
-    { name: 'Power Hub', x: 500, z: -500 }
-  ].forEach(zone => {
-    const dx = (zone.x - camera.position.x) * scale;
-    const dz = (zone.z - camera.position.z) * scale;
-    ctx.beginPath();
-    ctx.arc(centerX + dx, centerY + dz, 3, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
   let nearCrystal = false;
   crystalData.forEach(data => {
     if (!data.activated && data.object.position.distanceTo(controls.getObject().position) < 6) {
       nearCrystal = true;
     }
   });
+
+  turretMixers.forEach(m => m.update(delta));
+
+  const activationPrompt = document.getElementById('activation-prompt');
   activationPrompt.style.display = nearCrystal ? 'block' : 'none';
 
   renderer.render(scene, camera);
