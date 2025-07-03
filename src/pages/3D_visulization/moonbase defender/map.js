@@ -1,4 +1,3 @@
-// map.js
 import * as THREE from 'three';
 import { GLTFLoader } from 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js';
 import { AnimationMixer } from 'three';
@@ -8,11 +7,11 @@ const rockLoader = new GLTFLoader();
 const turretLoader = new GLTFLoader();
 
 export const crystalData = []; // {x, z, object, activated}
-export const turretMixers = []; // ✅ Store turret animation mixers
+export const turretMixers = [];
+export const turrets = [];
 
 export function createMoonZones(scene, texturePath, rockColliders) {
   const loader = new THREE.TextureLoader();
-
   const zoneData = [
     { name: "Landing Zone", x: 0, z: 0, texture: './assets/textures/moon.jpg' },
     { name: "Crater Valley", x: 500, z: 0, texture: './assets/textures/crater.jpg' },
@@ -37,7 +36,7 @@ export function createMoonZones(scene, texturePath, rockColliders) {
     label.position.set(x, 0.1, z);
     scene.add(label);
 
-    addRandomRocks(scene, x, z, rockColliders);
+    addFixedRocks(scene, x, z, rockColliders);
     if (name === "Crater Valley") addCraters(scene, x, z, rockColliders);
     if (name === "Ruined Base") addBrokenStructures(scene, x, z);
     if (["Landing Zone", "Crater Valley", "Ruined Base"].includes(name)) {
@@ -102,42 +101,63 @@ function addCrystal(scene, x, z) {
 
 function addTurretsAround(scene, cx, cz) {
   const offsets = [
-    [10, 10, Math.PI / 4],         // South
-    [-10, 10, -Math.PI / 2],       // East
-    [10, -10, Math.PI / 2],        // West
-    [-10, -10, Math.PI]            // North
+    [10, 10, Math.PI / 4],
+    [-10, 10, -Math.PI / 2],
+    [10, -10, Math.PI / 2],
+    [-10, -10, Math.PI]
   ];
 
   offsets.forEach(([dx, dz, rotation]) => {
     turretLoader.load('./assets/models/Turrets.glb', gltf => {
       const turretGroup = new THREE.Group();
-      const turretModel = gltf.scene || gltf.scenes?.[0];
-
-      turretModel.scale.set(1.5, 1.5, 1.5);
+      const turretModel = gltf.scene;
+      turretModel.scale.set(1.2, 1.2, 1.2);
       turretModel.rotation.y = 0;
       turretGroup.add(turretModel);
 
       turretGroup.position.set(cx + dx, 0.1, cz + dz);
       turretGroup.rotation.y = rotation;
-
       scene.add(turretGroup);
 
-      // ✅ Animate if animation exists
+      turrets.push({ object: turretGroup, cooldown: 0, health: 5 });
+
       if (gltf.animations && gltf.animations.length > 0) {
         const mixer = new AnimationMixer(turretModel);
         mixer.clipAction(gltf.animations[0]).play();
         turretMixers.push(mixer);
       }
 
-      // Optional debug sphere
       const dot = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3, 8, 8),
+        new THREE.SphereGeometry(0.2, 8, 8),
         new THREE.MeshBasicMaterial({ color: 0xff0000 })
       );
       dot.position.copy(turretGroup.position).add(new THREE.Vector3(0, 2, 0));
       scene.add(dot);
+    });
+  });
+}
 
-      console.log('✅ Turret loaded:', turretModel);
+// ✅ Fixed Rock Positions (same every time)
+function addFixedRocks(scene, baseX, baseZ, rockColliders) {
+  const positions = [
+    [baseX + 100, baseZ + 80],
+    [baseX - 120, baseZ - 90],
+    [baseX + 50, baseZ - 150],
+    [baseX - 160, baseZ + 130],
+    [baseX + 180, baseZ + 30]
+  ];
+
+  positions.forEach(([x, z]) => {
+    rockLoader.load('./assets/models/rock.glb', gltf => {
+      const rock = gltf.scene;
+      const scale = 1.5;
+      rock.scale.set(scale, scale, scale);
+      rock.position.set(x, 0, z);
+      rock.rotation.y = Math.PI / 3;
+      scene.add(rock);
+      const bbox = new THREE.Box3().setFromObject(rock);
+      const size = bbox.getSize(new THREE.Vector3()).length();
+      rockColliders.push({ position: rock.position.clone(), radius: size * 0.3 });
     });
   });
 }
@@ -145,18 +165,31 @@ function addTurretsAround(scene, cx, cz) {
 export function addStarDome(scene, camera) {
   const radius = 5000;
   const starsGeometry = new THREE.BufferGeometry();
-  const starPositions = [], starColors = [];
+  const twinklingStarsGeometry = new THREE.BufferGeometry();
+
+  const starPositions = [], twinklingStarPositions = [], starColors = [], twinklingStarColors = [], twinklingAlphas = [];
   const color = new THREE.Color();
 
-  for (let i = 0; i < 5000; i++) {
+  for (let i = 0; i < 10500; i++) {
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos((Math.random() * 2) - 1);
     const x = radius * Math.sin(phi) * Math.cos(theta);
     const y = radius * Math.sin(phi) * Math.sin(theta);
     const z = radius * Math.cos(phi);
-    color.setHSL(Math.random(), 0.5, 0.9);
-    starPositions.push(x, y, z);
-    starColors.push(color.r, color.g, color.b);
+    const isTwinkling = i >= 10000;
+    const lightness = isTwinkling ? 0.95 : 0.9 + Math.random() * 0.1;
+    const hue = Math.random() * 0.1;
+    const saturation = Math.random() * 0.2;
+    color.setHSL(hue, saturation, lightness);
+
+    if (isTwinkling) {
+      twinklingStarPositions.push(x, y, z);
+      twinklingStarColors.push(color.r, color.g, color.b);
+      twinklingAlphas.push(1);
+    } else {
+      starPositions.push(x, y, z);
+      starColors.push(color.r, color.g, color.b);
+    }
   }
 
   starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
@@ -166,6 +199,7 @@ export function addStarDome(scene, camera) {
     size: 1.2,
     vertexColors: true,
     transparent: true,
+    opacity: 1,
     fog: false
   });
 
@@ -173,10 +207,65 @@ export function addStarDome(scene, camera) {
   stars.renderOrder = -1000;
   scene.add(stars);
 
+  twinklingStarsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(twinklingStarPositions, 3));
+  twinklingStarsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(twinklingStarColors, 3));
+  const alphaAttribute = new THREE.Float32BufferAttribute(twinklingAlphas, 1);
+  twinklingStarsGeometry.setAttribute('alpha', alphaAttribute);
+
+  const twinklingStarMaterial = new THREE.PointsMaterial({
+    size: 2.0,
+    vertexColors: true,
+    transparent: true,
+    fog: false,
+    onBeforeCompile: (shader) => {
+      shader.vertexShader = shader.vertexShader.replace(
+        'void main() {',
+        `
+        attribute float alpha;
+        varying float vAlpha;
+        void main() {
+          vAlpha = alpha;
+        `
+      );
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'void main() {',
+        `
+        varying float vAlpha;
+        void main() {
+        `
+      );
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'gl_FragColor = vec4( outgoingLight, diffuseColor.a );',
+        'gl_FragColor = vec4( outgoingLight, vAlpha );'
+      );
+    }
+  });
+
+  const twinklingStars = new THREE.Points(twinklingStarsGeometry, twinklingStarMaterial);
+  twinklingStars.renderOrder = -999;
+  scene.add(twinklingStars);
+
+  const twinklingData = [];
+  for (let i = 0; i < twinklingStarPositions.length / 3; i++) {
+    twinklingData.push({
+      speed: 0.5 + Math.random() * 2,
+      offset: Math.random() * Math.PI * 2,
+      baseSize: 1.5 + Math.random() * 1.0
+    });
+  }
+
   return {
     position: stars.position,
     copy: stars.position.copy.bind(stars.position),
-    update: () => {}
+    update: (time) => {
+      const alphaAttrib = twinklingStarsGeometry.getAttribute('alpha');
+      for (let i = 0; i < twinklingData.length; i++) {
+        const t = time * twinklingData[i].speed + twinklingData[i].offset;
+        const opacity = 0.5 + 0.5 * Math.sin(t);
+        alphaAttrib.setX(i, opacity);
+      }
+      alphaAttrib.needsUpdate = true;
+    }
   };
 }
 

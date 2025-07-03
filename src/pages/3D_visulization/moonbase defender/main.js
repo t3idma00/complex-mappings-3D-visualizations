@@ -3,33 +3,29 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { GLTFLoader } from 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js';
 import { AnimationMixer, Box3 } from 'three';
 import { setupControls } from './controls.js';
-import { createMoonZones, crystalData, addStarDome } from './map.js';
-import { turretMixers } from './map.js';
+import { createMoonZones, crystalData, addStarDome, turretMixers, turrets } from './map.js';
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0.01);
+
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 8000);
 camera.position.y = 2;
-
-const starDome = addStarDome(scene, camera);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000);
 document.body.appendChild(renderer.domElement);
 
+// Lights
 scene.add(new THREE.HemisphereLight(0xddddff, 0x222233, 1.5));
 scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+scene.add(new THREE.DirectionalLight(0xffffff, 1.8).position.set(20, 100, -50));
+scene.add(new THREE.DirectionalLight(0x8888ff, 0.3).position.set(-20, 30, 40));
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
-dirLight.position.set(20, 100, -50);
-dirLight.castShadow = true;
-scene.add(dirLight);
+// Stars
+const starDome = addStarDome(scene, camera);
 
-const fillLight = new THREE.DirectionalLight(0x8888ff, 0.3);
-fillLight.position.set(-20, 30, 40);
-scene.add(fillLight);
-
+// Terrain & Controls
 const rockColliders = [];
 createMoonZones(scene, './assets/textures/moon.jpg', rockColliders);
 
@@ -38,19 +34,21 @@ scene.add(controls.getObject());
 setupControls(controls, camera, rockColliders);
 document.body.addEventListener('click', () => controls.lock());
 
+// Player Gun
 let muzzle = null;
-new GLTFLoader().load('./assets/models/gun.glb', (gltf) => {
-  const gunModel = gltf.scene;
-  gunModel.scale.set(0.3, 0.2, 0.3);
-  gunModel.position.set(0.2, -0.2, -0.7);
-  gunModel.rotation.y = Math.PI;
+new GLTFLoader().load('./assets/models/gun.glb', gltf => {
+  const gun = gltf.scene;
+  gun.scale.set(0.3, 0.2, 0.3);
+  gun.position.set(0.2, -0.2, -0.7);
+  gun.rotation.y = Math.PI;
   muzzle = new THREE.Object3D();
   muzzle.position.set(0, 0.04, -1);
-  gunModel.add(muzzle);
-  camera.add(gunModel);
+  gun.add(muzzle);
+  camera.add(gun);
 });
 
-const bullets = [], enemyBullets = [], airshipBombs = [], enemies = [], airships = [];
+// Audio
+const bullets = [], turretBullets = [], enemyBullets = [], airshipBombs = [], enemies = [], airships = [];
 const shootDirection = new THREE.Vector3();
 const listener = new THREE.AudioListener();
 camera.add(listener);
@@ -60,15 +58,13 @@ new THREE.AudioLoader().load('./assets/sounds/shoot.mp3', buffer => {
   shootSound.setVolume(0.5);
 });
 
+// Shooting
 window.addEventListener('click', () => {
   if (!controls.isLocked || !muzzle) return;
   const muzzleWorld = new THREE.Vector3();
   muzzle.getWorldPosition(muzzleWorld);
   camera.getWorldDirection(shootDirection);
-  const bullet = new THREE.Mesh(
-    new THREE.SphereGeometry(0.05, 8, 8),
-    new THREE.MeshBasicMaterial({ color: 0x00ffff })
-  );
+  const bullet = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
   bullet.position.copy(muzzleWorld);
   bullet.userData.velocity = shootDirection.clone().multiplyScalar(0.8);
   scene.add(bullet);
@@ -77,12 +73,12 @@ window.addEventListener('click', () => {
   shootSound.play();
 });
 
+// Spawning
 function spawnEnemy(x, z) {
-  new GLTFLoader().load('./assets/models/enemy1.glb', (gltf) => {
+  new GLTFLoader().load('./assets/models/enemy1.glb', gltf => {
     const enemy = gltf.scene;
     enemy.scale.set(0.1, 0.1, 0.1);
     enemy.position.set(x, 0, z);
-    enemy.rotation.y = Math.PI;
     enemy.health = 10;
     enemy.mixer = new AnimationMixer(enemy);
     enemy.mixer.clipAction(gltf.animations[0]).play();
@@ -90,14 +86,10 @@ function spawnEnemy(x, z) {
     enemies.push(enemy);
 
     setInterval(() => {
-      if (!enemy || enemy.health <= 0) return;
-      const eye = enemy.position.clone();
-      eye.y += 5;
+      if (enemy.health <= 0) return;
+      const eye = enemy.position.clone(); eye.y += 5;
       const dir = controls.getObject().position.clone().sub(eye).normalize();
-      const bullet = new THREE.Mesh(
-        new THREE.SphereGeometry(0.07, 12, 12),
-        new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 5 })
-      );
+      const bullet = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 12), new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000 }));
       bullet.position.copy(eye);
       bullet.userData.velocity = dir.multiplyScalar(0.08);
       scene.add(bullet);
@@ -107,22 +99,18 @@ function spawnEnemy(x, z) {
 }
 
 function spawnAirship(x, z) {
-  new GLTFLoader().load('./assets/models/airship.glb', (gltf) => {
-    const airship = gltf.scene;
-    airship.scale.set(2, 2, 2);
-    airship.position.set(x, 10, z);
-    airship.rotation.y = Math.PI;
-    airship.health = 15;
-    scene.add(airship);
-    airships.push(airship);
+  new GLTFLoader().load('./assets/models/airship.glb', gltf => {
+    const ship = gltf.scene;
+    ship.scale.set(2, 2, 2);
+    ship.position.set(x, 10, z);
+    ship.health = 15;
+    scene.add(ship);
+    airships.push(ship);
 
     setInterval(() => {
-      if (!airship || airship.health <= 0) return;
-      const bomb = new THREE.Mesh(
-        new THREE.SphereGeometry(0.2, 8, 8),
-        new THREE.MeshStandardMaterial({ color: 0xff9900, emissive: 0xff6600, emissiveIntensity: 2 })
-      );
-      bomb.position.copy(airship.position);
+      if (ship.health <= 0) return;
+      const bomb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshStandardMaterial({ color: 0xff9900, emissive: 0xff6600 }));
+      bomb.position.copy(ship.position);
       bomb.userData.velocity = new THREE.Vector3(0, -0.1, 0);
       scene.add(bomb);
       airshipBombs.push(bomb);
@@ -130,7 +118,6 @@ function spawnAirship(x, z) {
   });
 }
 
-// Spawn enemies & airships
 spawnEnemy(10, -10);
 spawnEnemy(-10, -10);
 spawnEnemy(0, -30);
@@ -138,6 +125,7 @@ spawnAirship(0, -20);
 spawnAirship(10, -30);
 spawnAirship(-10, -30);
 
+// Player Health
 let playerHealth = 20;
 function updateHealthBar() {
   const bar = document.getElementById('health-bar');
@@ -146,6 +134,7 @@ function updateHealthBar() {
   bar.style.backgroundColor = percent < 20 ? 'red' : percent < 40 ? 'orange' : 'limegreen';
 }
 
+// Crystal Activation
 let activatedCount = 0;
 const counterDiv = document.createElement('div');
 counterDiv.style.cssText = 'position:fixed;top:20px;right:20px;color:white;font-size:20px;z-index:1000;font-family:monospace';
@@ -177,14 +166,13 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Minimap background textures
+// Minimap Setup
 const zoneImages = {
   'Landing Zone': Object.assign(new Image(), { src: './assets/textures/moon.jpg' }),
   'Crater Valley': Object.assign(new Image(), { src: './assets/textures/crater.jpg' }),
   'Ruined Base': Object.assign(new Image(), { src: './assets/textures/ruined.jpg' }),
-  'Power Hub': Object.assign(new Image(), { src: './assets/textures/moon.jpg' })
+  'Power Hub': Object.assign(new Image(), { src: './assets/textures/stars.jpg' })
 };
-
 const zoneData = [
   { name: 'Landing Zone', x: 0, z: 0 },
   { name: 'Crater Valley', x: 500, z: 0 },
@@ -192,6 +180,7 @@ const zoneData = [
   { name: 'Power Hub', x: 500, z: -500 }
 ];
 
+// Animate
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
@@ -202,7 +191,7 @@ function animate() {
   starDome.position.copy(camera.position);
   starDome.update?.(time);
 
-  enemies.forEach((e) => {
+  enemies.forEach(e => {
     e.mixer?.update(delta);
     if (e.health > 0) {
       const dir = controls.getObject().position.clone().sub(e.position); dir.y = 0;
@@ -211,7 +200,7 @@ function animate() {
     }
   });
 
-  airships.forEach((a) => {
+  airships.forEach(a => {
     if (a.health > 0) {
       const dir = controls.getObject().position.clone().sub(a.position); dir.y = 0;
       if (dir.length() > 2) a.position.add(dir.normalize().multiplyScalar(0.01));
@@ -219,63 +208,51 @@ function animate() {
     }
   });
 
-  bullets.forEach((b, i) => {
-    b.position.add(b.userData.velocity);
-
-    enemies.forEach((e) => {
-      if (e.health > 0 && new Box3().setFromObject(e).containsPoint(b.position)) {
-        e.health--;
-        scene.remove(b);
-        bullets.splice(i, 1);
-        if (e.health <= 0) {
-          e.traverse(c => c.isMesh && Object.assign(c.material, {
-            emissive: new THREE.Color(0x00ff00),
-            emissiveIntensity: 0.1,
-            color: new THREE.Color(0x66ff66),
-            metalness: 0.2,
-            roughness: 0.6
-          }));
-          setTimeout(() => scene.remove(e), 1000);
-        }
-      }
-    });
-
-    airships.forEach((ship) => {
-      if (ship.health > 0 && new Box3().setFromObject(ship).containsPoint(b.position)) {
-        ship.health--;
-        scene.remove(b);
-        bullets.splice(i, 1);
-        if (ship.health <= 0) {
-          ship.traverse(c => {
-            if (c.isMesh) {
-              c.material = c.material.clone();
-              c.material.color.set(0x882222);
-              c.material.emissive.set(0xff0000);
-              c.material.emissiveIntensity = 0.4;
-            }
-          });
-          setTimeout(() => scene.remove(ship), 1500);
-        }
-      }
-    });
-
-    if (b.position.length() > 100) {
-      scene.remove(b);
-      bullets.splice(i, 1);
+  turrets.forEach(t => {
+    const dist = t.object.position.distanceTo(controls.getObject().position);
+    t.cooldown -= delta;
+    if (dist < 25 && t.cooldown <= 0) {
+      const pos = t.object.position.clone(); pos.y += 2;
+      const dir = controls.getObject().position.clone().sub(pos).normalize();
+      const bullet = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xff2222 }));
+      bullet.position.copy(pos);
+      bullet.userData.velocity = dir.multiplyScalar(0.8);
+      scene.add(bullet);
+      turretBullets.push(bullet);
+      t.cooldown = 1.5;
     }
   });
 
-  enemyBullets.forEach((b, i) => {
+  [...bullets].forEach((b, i) => {
+    b.position.add(b.userData.velocity);
+    enemies.forEach(e => {
+      if (e.health > 0 && new Box3().setFromObject(e).containsPoint(b.position)) {
+        e.health--; scene.remove(b); bullets.splice(i, 1);
+        if (e.health <= 0) setTimeout(() => scene.remove(e), 1000);
+      }
+    });
+    airships.forEach(a => {
+      if (a.health > 0 && new Box3().setFromObject(a).containsPoint(b.position)) {
+        a.health--; scene.remove(b); bullets.splice(i, 1);
+        if (a.health <= 0) setTimeout(() => scene.remove(a), 1000);
+      }
+    });
+    turrets.forEach(t => {
+      if (t.health > 0 && b.position.distanceTo(t.object.position) < 1.5) {
+        t.health--; scene.remove(b); bullets.splice(i, 1);
+        if (t.health <= 0) scene.remove(t.object);
+      }
+    });
+  });
+
+  [...turretBullets, ...enemyBullets].forEach((b, i, arr) => {
     b.position.add(b.userData.velocity);
     if (b.position.distanceTo(controls.getObject().position) < 0.6) {
       playerHealth--;
       updateHealthBar();
       scene.remove(b);
-      enemyBullets.splice(i, 1);
-      if (playerHealth <= 0) alert('Game Over!'), window.location.reload();
-    } else if (b.position.length() > 100) {
-      scene.remove(b);
-      enemyBullets.splice(i, 1);
+      arr.splice(i, 1);
+      if (playerHealth <= 0) alert('Game Over'), window.location.reload();
     }
   });
 
@@ -285,14 +262,16 @@ function animate() {
       if (b.position.distanceTo(controls.getObject().position) < 1.5) {
         playerHealth -= 2;
         updateHealthBar();
-        if (playerHealth <= 0) alert('Game Over!'), window.location.reload();
+        if (playerHealth <= 0) alert('Game Over'), window.location.reload();
       }
       scene.remove(b);
       airshipBombs.splice(i, 1);
     }
   });
 
-  // --- MINIMAP ---
+  turretMixers.forEach(m => m.update(delta));
+
+  // Minimap render
   const canvas = document.getElementById('minimap');
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -341,17 +320,10 @@ function animate() {
     ctx.fill();
   });
 
-  let nearCrystal = false;
-  crystalData.forEach(data => {
-    if (!data.activated && data.object.position.distanceTo(controls.getObject().position) < 6) {
-      nearCrystal = true;
-    }
-  });
-
-  turretMixers.forEach(m => m.update(delta));
-
-  const activationPrompt = document.getElementById('activation-prompt');
-  activationPrompt.style.display = nearCrystal ? 'block' : 'none';
+  document.getElementById('activation-prompt').style.display =
+    crystalData.some(data =>
+      !data.activated && data.object.position.distanceTo(controls.getObject().position) < 6
+    ) ? 'block' : 'none';
 
   renderer.render(scene, camera);
 }
