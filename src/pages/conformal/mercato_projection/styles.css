@@ -1,0 +1,23 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #f9f9f9;
+}
+
+.container {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  padding: 20px;
+  gap: 20px;
+}
+
+canvas {
+  border: 1px solid #ccc;
+  background: white;
+}
+
+#globe, #map {
+  width: 500px;
+  height: 500px;
+}
