@@ -137,6 +137,7 @@ function animate() {
       );
       bullet.position.copy(pos);
       bullet.userData.velocity = dir.multiplyScalar(0.8);
+      bullet.userData.life = 10;
       scene.add(bullet);
       turretBullets.push(bullet);
       t.cooldown = 1.5;
@@ -146,36 +147,37 @@ function animate() {
   handleEnemyHits(scene, bullets, enemies, airships, turrets);
 
   // Bullet damage
-  [...turretBullets, ...enemyBullets].forEach((b, i, arr) => {
-    b.position.add(b.userData.velocity);
-    if (b.position.distanceTo(controls.getObject().position) < 0.6) {
-      playerHealth--;
-      updateHealthBar(playerHealth);
-      scene.remove(b);
-      arr.splice(i, 1);
-      if (playerHealth <= 0) {
-        alert('Game Over');
-        window.location.reload();
-      }
-    }
-  });
+[...turretBullets, ...enemyBullets].forEach((b, i, arr) => {
+  b.position.add(b.userData.velocity);
+  b.userData.life -= delta;
+  if (b.userData.life <= 0) {
+    scene.remove(b);
+    arr.splice(i, 1);
+    return;
+  }
+  if (b.position.distanceTo(controls.getObject().position) < 0.6) {
+    playerHealth--;
+    updateHealthBar(playerHealth);
+    scene.remove(b);
+    arr.splice(i, 1);
+    if (playerHealth <= 0) alert('Game Over'), window.location.reload();
+  }
+});
 
   // Airship bombs
   airshipBombs.forEach((b, i) => {
-    b.position.add(b.userData.velocity);
-    if (b.position.y < 0.1 || b.position.distanceTo(controls.getObject().position) < 1.5) {
-      if (b.position.distanceTo(controls.getObject().position) < 1.5) {
-        playerHealth -= 2;
-        updateHealthBar(playerHealth);
-        if (playerHealth <= 0) {
-          alert('Game Over');
-          window.location.reload();
-        }
-      }
-      scene.remove(b);
-      airshipBombs.splice(i, 1);
+  b.position.add(b.userData.velocity);
+  b.userData.life -= delta;
+  if (b.userData.life <= 0 || b.position.y < 0.1 || b.position.distanceTo(controls.getObject().position) < 1.5) {
+    if (b.position.distanceTo(controls.getObject().position) < 1.5) {
+      playerHealth -= 2;
+      updateHealthBar(playerHealth);
+      if (playerHealth <= 0) alert('Game Over'), window.location.reload();
     }
-  });
+    scene.remove(b);
+    airshipBombs.splice(i, 1);
+  }
+});
 
   turretMixers.forEach(m => m.update(delta));
   drawMinimap(camera, enemies, crystalData);

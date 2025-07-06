@@ -23,6 +23,7 @@ export function spawnEnemy(scene, controls, enemies, enemyBullets, modelPath, x,
       );
       bullet.position.copy(eye);
       bullet.userData.velocity = dir.multiplyScalar(0.08);
+      bullet.userData.life = 10;
       scene.add(bullet);
       enemyBullets.push(bullet);
     }, 2000);

@@ -84,6 +84,7 @@ export function handleShooting(scene, camera, bullets, shootSound) {
   );
   bullet.position.copy(muzzleWorld);
   bullet.userData.velocity = shootDirection.clone().multiplyScalar(0.8);
+  bullet.userData.life = 10;
   scene.add(bullet);
   bullets.push(bullet);
   if (shootSound.isPlaying) shootSound.stop();
