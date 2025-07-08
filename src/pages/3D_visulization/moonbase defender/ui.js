@@ -1,3 +1,4 @@
+// ui.js
 export function setupUI() {
   if (!document.getElementById('crystal-counter')) {
     const counterDiv = document.createElement('div');
@@ -10,8 +11,10 @@ export function setupUI() {
 export function updateCrystalCounter() {
   const count = (window.crystalData || []).filter(d => d.activated).length;
   const total = (window.crystalData || []).length;
-  document.getElementById('crystal-counter').textContent = `Crystals Activated: ${count} / ${total}`;
+  const counter = document.getElementById('crystal-counter');
+  if (counter) counter.textContent = `Crystals Activated: ${count} / ${total}`;
 }
+
 
 export function showActivationPrompt(playerPos, crystalData) {
   const prompt = document.getElementById('activation-prompt');

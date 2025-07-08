@@ -1,5 +1,7 @@
+// player.js
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { updateCrystalCounter } from './ui.js';
 
 let muzzle = null;
 let muzzle2 = null;
@@ -22,7 +24,7 @@ export function setupPlayer(scene, camera) {
     shootSound.setVolume(0.5);
   });
 
-  // Load Gun 1
+  // Gun 1
   new GLTFLoader().load('./assets/models/gun.glb', gltf => {
     gun1 = gltf.scene;
     gun1.scale.set(0.3, 0.2, 0.3);
@@ -34,29 +36,20 @@ export function setupPlayer(scene, camera) {
     camera.add(gun1);
   });
 
-  // Load Gun 2
+  // Gun 2
   new GLTFLoader().load('./assets/models/gun2.glb', gltf => {
     gun2 = gltf.scene;
     gun2.scale.set(0.3, 0.2, 0.3);
     gun2.position.set(0.2, -0.15, -0.3);
     gun2.rotation.set(THREE.MathUtils.degToRad(3), Math.PI / 2, 0);
-
-    gun2.traverse(child => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-
     muzzle2 = new THREE.Object3D();
-    muzzle2.position.set(0.5, 0.04, 0); // ⬅ adjust if still not at the tip
+    muzzle2.position.set(0.5, 0.04, 0);
     gun2.add(muzzle2);
-
     gun2.visible = false;
     camera.add(gun2);
   });
 
-  // Weapon Switching
+  // Weapon switch
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Digit1') {
       currentWeapon = 'gun1';
@@ -68,14 +61,11 @@ export function setupPlayer(scene, camera) {
       if (gun1) gun1.visible = false;
       if (gun2) gun2.visible = true;
     }
-
     const ui = document.getElementById('weapon-indicator');
     if (ui) ui.textContent = `🔫 ${currentWeapon.toUpperCase()}`;
   });
 
   loadTaxiModel(scene);
-  setupCrystalCounter();
-
   return {
     bullets,
     turretBullets,
@@ -97,22 +87,6 @@ function loadTaxiModel(scene) {
   });
 }
 
-function setupCrystalCounter() {
-  if (!document.getElementById('crystal-counter')) {
-    const counterDiv = document.createElement('div');
-    counterDiv.id = 'crystal-counter';
-    counterDiv.style.cssText = 'position:fixed;top:20px;right:20px;color:white;font-size:20px;z-index:1000;font-family:monospace';
-    document.body.appendChild(counterDiv);
-  }
-  updateCrystalCounter();
-}
-
-function updateCrystalCounter() {
-  const count = (window.crystalData || []).filter(d => d.activated).length;
-  const total = (window.crystalData || []).length;
-  document.getElementById('crystal-counter').textContent = `Crystals Activated: ${count} / ${total}`;
-}
-
 export function getMuzzle() {
   return currentWeapon === 'gun1' ? muzzle : muzzle2;
 }
@@ -130,20 +104,16 @@ export function handleShooting(scene, camera, bullets, shootSound) {
       new THREE.SphereGeometry(0.05, 8, 8),
       new THREE.MeshBasicMaterial({ color: 0x00ffff })
     );
-  } else if (currentWeapon === 'gun2') {
-    const waveGeometry = new THREE.RingGeometry(0.1, 0.2, 32);
-    const waveMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.8,
-    });
-    bullet = new THREE.Mesh(waveGeometry, waveMaterial);
-    bullet.quaternion.copy(camera.quaternion); // make it face forward
-
-    // bullet.rotation.x = Math.PI / 2;
-    bullet.userData.pulse = true;
-    bullet.userData.scaleDir = 1;
+  } else {
+    bullet = new THREE.Mesh(
+      new THREE.TorusGeometry(0.1, 0.015, 8, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0xff0000,
+        emissive: 0xff0000,
+        emissiveIntensity: 1
+      })
+    );
+    bullet.rotation.x = Math.PI ; // Make ring face forward
   }
 
   bullet.position.copy(muzzleWorld);
@@ -175,7 +145,9 @@ export function handleCrystalActivation(playerPos) {
     }
   }
 
-  if (activatedAny) updateCrystalCounter();
+  if (activatedAny) {
+    updateCrystalCounter();
+  }
 
   if (!taxiActivated && window.crystalData.every(d => d.activated)) {
     taxiActivated = true;

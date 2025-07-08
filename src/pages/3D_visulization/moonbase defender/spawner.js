@@ -1,5 +1,3 @@
-// Reserved for dynamic enemy/airship spawning in future waves
-// You can call `spawnEnemy()` or `spawnAirship()` from enemies.js
 
 export function spawnWave(waveNumber, scene, controls, enemies, enemyBullets, airships, airshipBombs) {
   for (let i = 0; i < waveNumber; i++) {

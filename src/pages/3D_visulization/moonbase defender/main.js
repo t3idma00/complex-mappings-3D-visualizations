@@ -1,7 +1,8 @@
+// main.js
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { setupControls } from './controls.js';
-import { createMoonZones, crystalData, addStarDome, turretMixers, turrets } from './map.js';
+import { createMoonZones, crystalData, turretMixers, turrets } from './map.js';
 import {
   setupPlayer,
   handleShooting,
@@ -18,10 +19,7 @@ import {
   handleEnemyHits
 } from './enemies.js';
 import { drawMinimap } from './minimap.js';
-import { setupUI, showActivationPrompt } from './ui.js'; // Removed updateCrystalCounter
-
-// Make crystalData accessible globally
-window.crystalData = crystalData;
+import { setupUI, showActivationPrompt, updateCrystalCounter } from './ui.js'; 
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0.01);
@@ -40,12 +38,23 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 scene.add(new THREE.DirectionalLight(0xffffff, 1.8).position.set(20, 100, -50));
 scene.add(new THREE.DirectionalLight(0x8888ff, 0.3).position.set(-20, 30, 40));
 
-// Star Dome
-const starDome = addStarDome(scene, camera);
+
+const starDome = new THREE.Mesh(
+  new THREE.SphereGeometry(4000, 32, 32),
+  new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide })
+);
+scene.add(starDome);
 
 // Terrain & Moon Zones
 const rockColliders = [];
 createMoonZones(scene, './assets/textures/moon.jpg', rockColliders);
+
+// Set global crystalData after zone creation
+window.crystalData = crystalData;
+
+// UI
+setupUI();
+updateCrystalCounter(); // Call updateCrystalCounter from ui.js
 
 // Controls
 const controls = new PointerLockControls(camera, renderer.domElement);
@@ -64,12 +73,11 @@ const {
   shootSound
 } = setupPlayer(scene, camera);
 
-// UI
-setupUI(); // player.js handles crystal counter update
+// Health
 let playerHealth = 20;
 updateHealthBar(playerHealth);
 
-// Spawn enemies and airships per zone
+// Spawn enemies and airships
 const zonePositions = [
   { name: "Landing Zone", x: 0, z: 0 },
   { name: "Crater Valley", x: 500, z: 0 },
@@ -83,7 +91,6 @@ zonePositions.forEach(zone => {
     const offsetZ = (Math.random() - 0.5) * 100;
     spawnEnemy(scene, controls, enemies, enemyBullets, './assets/models/enemy1.glb', zone.x + offsetX, zone.z + offsetZ);
   }
-
   for (let i = 0; i < 3; i++) {
     const offsetX = (Math.random() - 0.5) * 100;
     const offsetZ = (Math.random() - 0.5) * 100;
@@ -91,15 +98,11 @@ zonePositions.forEach(zone => {
   }
 });
 
-// REMOVE duplicate hardcoded spawns here (✅ already removed)
-
-// Input
+// Key Input
 document.addEventListener('keydown', (e) => {
   if (e.code === 'KeyE') {
     const activated = handleCrystalActivation(controls.getObject().position);
-    if (activated) {
-      // updateCrystalCounter(); ← no need, already called in player.js
-    }
+    // No need to call updateCrystalCounter here, as it's handled inside handleCrystalActivation
     handleTaxiInteraction(controls.getObject().position);
   }
 });
@@ -118,14 +121,13 @@ function animate() {
 
   controls.update();
   starDome.position.copy(camera.position);
-  starDome.update?.(time);
+  // starDome.update?.(time); // Uncomment if starDome has an update method
 
   updateEnemies(scene, delta, controls, enemies);
   updateAirships(scene, delta, controls, airships);
 
-  // Turret logic
   turrets.forEach(t => {
-    if (t.health <= 0) return; // ✅ Skip destroyed turrets
+    if (t.health <= 0) return;
     const dist = t.object.position.distanceTo(controls.getObject().position);
     t.cooldown -= delta;
     if (dist < 25 && t.cooldown <= 0) {
@@ -146,38 +148,36 @@ function animate() {
 
   handleEnemyHits(scene, bullets, enemies, airships, turrets);
 
-  // Bullet damage
-[...turretBullets, ...enemyBullets].forEach((b, i, arr) => {
-  b.position.add(b.userData.velocity);
-  b.userData.life -= delta;
-  if (b.userData.life <= 0) {
-    scene.remove(b);
-    arr.splice(i, 1);
-    return;
-  }
-  if (b.position.distanceTo(controls.getObject().position) < 0.6) {
-    playerHealth--;
-    updateHealthBar(playerHealth);
-    scene.remove(b);
-    arr.splice(i, 1);
-    if (playerHealth <= 0) alert('Game Over'), window.location.reload();
-  }
-});
-
-  // Airship bombs
-  airshipBombs.forEach((b, i) => {
-  b.position.add(b.userData.velocity);
-  b.userData.life -= delta;
-  if (b.userData.life <= 0 || b.position.y < 0.1 || b.position.distanceTo(controls.getObject().position) < 1.5) {
-    if (b.position.distanceTo(controls.getObject().position) < 1.5) {
-      playerHealth -= 2;
+  [...turretBullets, ...enemyBullets].forEach((b, i, arr) => {
+    b.position.add(b.userData.velocity);
+    b.userData.life -= delta;
+    if (b.userData.life <= 0) {
+      scene.remove(b);
+      arr.splice(i, 1);
+      return;
+    }
+    if (b.position.distanceTo(controls.getObject().position) < 0.6) {
+      playerHealth--;
       updateHealthBar(playerHealth);
+      scene.remove(b);
+      arr.splice(i, 1);
       if (playerHealth <= 0) alert('Game Over'), window.location.reload();
     }
-    scene.remove(b);
-    airshipBombs.splice(i, 1);
-  }
-});
+  });
+
+  airshipBombs.forEach((b, i) => {
+    b.position.add(b.userData.velocity);
+    b.userData.life -= delta;
+    if (b.userData.life <= 0 || b.position.y < 0.1 || b.position.distanceTo(controls.getObject().position) < 1.5) {
+      if (b.position.distanceTo(controls.getObject().position) < 1.5) {
+        playerHealth -= 2;
+        updateHealthBar(playerHealth);
+        if (playerHealth <= 0) alert('Game Over'), window.location.reload();
+      }
+      scene.remove(b);
+      airshipBombs.splice(i, 1);
+    }
+  });
 
   turretMixers.forEach(m => m.update(delta));
   drawMinimap(camera, enemies, crystalData);
