@@ -215,10 +215,12 @@ function animate() {
   const earth = planets.find(p => p.name === 'earth');
   if (earth) {
     const angle = Math.atan2(earth.body.position.z, earth.body.position.x);
-    const yearFraction = (angle + Math.PI) / (2 * Math.PI);
-    const days = Math.round(365 * yearFraction);
-    const simulatedDate = new Date(today.getFullYear(), 0, 1 + days);
-    dateDisplay.textContent = `🕒 ${simulatedDate.toDateString()}`;
+    if (lastAngle > 2.5 && angle < -2.5) {
+      completedOrbits++;
+    }
+    lastAngle = angle;
+    const simulatedYear = baseYear + completedOrbits;
+    dateDisplay.textContent = `🕒 Year: ${simulatedYear}`;
   }
 
   controls.update();
@@ -306,39 +308,4 @@ planets.forEach(planet => {
   panel.appendChild(group);
 });
 
-// Add Sun Mass Control 
-const sunGroup = document.createElement('div');
-sunGroup.className = 'planet-group';
-
-const sunTitle = document.createElement('h4');
-sunTitle.textContent = "Sun";
-sunTitle.style.marginBottom = '5px';
-sunGroup.appendChild(sunTitle);
-
-const sunMassLabel = document.createElement('label');
-sunMassLabel.textContent = `Mass (${sun.mass.toFixed(0)}× default)`;
-sunGroup.appendChild(sunMassLabel);
-
-const sunMassSlider = document.createElement('input');
-const sunMassInput = document.getElementById('sunMass');
-const sunMassValue = document.getElementById('sunMassValue');
-sunMassInput.addEventListener('input', () => {
-  sun.mass = parseFloat(sunMassInput.value);
-  sunMassValue.textContent = sun.mass.toFixed(0);
-});
-sunGroup.appendChild(sunMassSlider);
-
-panel.appendChild(sunGroup);
-
-
 setupPlanetLanding(scene, camera, controls, planets, renderer);
-
-
-
-const htmlSunMassSlider = document.getElementById('sunMass');
-const htmlSunMassValue = document.getElementById('sunMassValue');
-htmlSunMassSlider.addEventListener('input', () => {
-  const mass = parseFloat(htmlSunMassSlider.value);
-  sun.mass = mass;
-  htmlSunMassValue.textContent = mass;
-});
