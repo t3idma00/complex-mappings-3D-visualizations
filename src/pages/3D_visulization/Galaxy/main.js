@@ -11,10 +11,7 @@ import {
 } from './models.js';
 import { planetInfo, Constellations } from './planetinfo.js';
 import { setupControls, updateSpacecraftMovement, onShoot } from './control.js';
-
-// import { createConstellationSphere } from './constellations.js';
 import { setupPlanetLanding } from './setupPlanetLanding.js';
-
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -29,7 +26,9 @@ const world = createPhysicsWorld();
 const { sun, planets } = createSolarSystemWithPhysics(scene, world);
 
 const dateDisplay = document.getElementById('dateDisplay');
-const today = new Date();
+const baseYear = new Date().getFullYear();
+let completedOrbits = 0;
+let lastAngle = 0;
 
 const spiralGroup = new THREE.Group();
 spiralGroup.add(createSpiralGalaxy({
@@ -62,8 +61,6 @@ ringGalaxies.forEach((r, i) => {
 
 const starField = createTwinklingStars(4000, 300);
 scene.add(starField);
-
-// scene.add(createConstellationSphere());
 
 const spacecraft = createSpacecraft();
 scene.add(spacecraft);
@@ -218,10 +215,13 @@ function animate() {
   const earth = planets.find(p => p.name === 'earth');
   if (earth) {
     const angle = Math.atan2(earth.body.position.z, earth.body.position.x);
-    const yearFraction = (angle + Math.PI) / (2 * Math.PI);
-    const days = Math.round(365 * yearFraction);
-    const simulatedDate = new Date(today.getFullYear(), 0, 1 + days);
-    dateDisplay.textContent = `🕒 ${simulatedDate.toDateString()}`;
+    if (lastAngle > 2.5 && angle < -2.5) {
+      completedOrbits++;
+    }
+    lastAngle = angle;
+
+    const simulatedYear = baseYear + completedOrbits;
+    dateDisplay.textContent = `🕒 Year: ${simulatedYear}`;
   }
 
   controls.update();
@@ -281,7 +281,8 @@ planets.forEach(planet => {
   panel.appendChild(group);
 });
 
-// Add Sun Mass Control 
+// Sun Mass Control 
+
 const sunGroup = document.createElement('div');
 sunGroup.className = 'planet-group';
 
@@ -291,19 +292,31 @@ sunTitle.style.marginBottom = '5px';
 sunGroup.appendChild(sunTitle);
 
 const sunMassLabel = document.createElement('label');
-sunMassLabel.textContent = `Mass (${sun.mass.toFixed(0)}× default)`;
+sunMassLabel.textContent = `Mass (${sun.mass.toFixed(0)})`;
 sunGroup.appendChild(sunMassLabel);
 
 const sunMassSlider = document.createElement('input');
-const sunMassInput = document.getElementById('sunMass');
-const sunMassValue = document.getElementById('sunMassValue');
-sunMassInput.addEventListener('input', () => {
-  sun.mass = parseFloat(sunMassInput.value);
-  sunMassValue.textContent = sun.mass.toFixed(0);
-});
+sunMassSlider.type = 'range';
+sunMassSlider.min = 10;
+sunMassSlider.max = 3000;
+sunMassSlider.step = 1;
+sunMassSlider.value = sun.mass;
+sunMassSlider.oninput = () => {
+  sun.mass = parseFloat(sunMassSlider.value);
+  sunMassLabel.textContent = `Mass (${sun.mass.toFixed(0)})`;
+};
 sunGroup.appendChild(sunMassSlider);
 
 panel.appendChild(sunGroup);
 
-
 setupPlanetLanding(scene, camera, controls, planets, renderer);
+
+
+
+const htmlSunMassSlider = document.getElementById('sunMass');
+const htmlSunMassValue = document.getElementById('sunMassValue');
+htmlSunMassSlider.addEventListener('input', () => {
+  const mass = parseFloat(htmlSunMassSlider.value);
+  sun.mass = mass;
+  htmlSunMassValue.textContent = mass;
+});
