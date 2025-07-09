@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { AnimationMixer, Box3 } from 'three';
 
+const healthLoader = new GLTFLoader();
+export const healthPacks = [];
+
 export function spawnEnemy(scene, controls, enemies, enemyBullets, modelPath, x, z) {
   new GLTFLoader().load(modelPath, gltf => {
     const enemy = gltf.scene;
@@ -79,19 +82,47 @@ export function handleEnemyHits(scene, bullets, enemies, airships, turrets) {
     b.position.add(b.userData.velocity);
     enemies.forEach(e => {
       if (e.health > 0 && new Box3().setFromObject(e).containsPoint(b.position)) {
-        e.health--; scene.remove(b); bullets.splice(i, 1);
-        if (e.health <= 0) setTimeout(() => scene.remove(e), 1000);
+        e.health--;
+        scene.remove(b);
+        bullets.splice(i, 1);
+        if (e.health <= 0) {
+          const dropPos = e.position.clone();
+          setTimeout(() => {
+            scene.remove(e);
+            healthLoader.load('./assets/models/health.glb', gltf => {
+              const pack = gltf.scene;
+            pack.scale.set(1.5, 1.5, 1.5);
+pack.position.copy(dropPos).add(new THREE.Vector3(0, 1, 0)); // elevate
+console.log('💊 Health pack dropped at', dropPos);
+
+pack.traverse(child => {
+  if (child.isMesh) {
+    child.material = child.material.clone(); // Optional if you want glow control
+    child.material.emissiveIntensity = 0.5;  // Keep slight glow, no color override
+  }
+});
+scene.add(pack);
+healthPacks.push(pack);
+            });
+          }, 1000);
+        }
       }
     });
+
     airships.forEach(a => {
       if (a.health > 0 && new Box3().setFromObject(a).containsPoint(b.position)) {
-        a.health--; scene.remove(b); bullets.splice(i, 1);
+        a.health--;
+        scene.remove(b);
+        bullets.splice(i, 1);
         if (a.health <= 0) setTimeout(() => scene.remove(a), 1000);
       }
     });
+
     turrets.forEach(t => {
       if (t.health > 0 && b.position.distanceTo(t.object.position) < 1.5) {
-        t.health--; scene.remove(b); bullets.splice(i, 1);
+        t.health--;
+        scene.remove(b);
+        bullets.splice(i, 1);
         if (t.health <= 0) scene.remove(t.object);
       }
     });

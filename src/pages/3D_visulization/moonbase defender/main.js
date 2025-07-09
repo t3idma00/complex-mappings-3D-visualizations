@@ -1,4 +1,3 @@
-// main.js
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { setupControls } from './controls.js';
@@ -19,7 +18,8 @@ import {
   handleEnemyHits
 } from './enemies.js';
 import { drawMinimap } from './minimap.js';
-import { setupUI, showActivationPrompt, updateCrystalCounter } from './ui.js'; 
+import { setupUI, showActivationPrompt, updateCrystalCounter } from './ui.js';
+import { healthPacks } from './enemies.js';
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0.01);
@@ -33,28 +33,57 @@ renderer.setClearColor(0x000000);
 document.body.appendChild(renderer.domElement);
 
 // Lights
-scene.add(new THREE.HemisphereLight(0xddddff, 0x222233, 1.5));
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-scene.add(new THREE.DirectionalLight(0xffffff, 1.8).position.set(20, 100, -50));
-scene.add(new THREE.DirectionalLight(0x8888ff, 0.3).position.set(-20, 30, 40));
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x555555, 2.0);
+scene.add(hemiLight);
 
+const ambient = new THREE.AmbientLight(0xffffff, 1.2);
+scene.add(ambient);
 
-const starDome = new THREE.Mesh(
-  new THREE.SphereGeometry(4000, 32, 32),
-  new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide })
-);
-scene.add(starDome);
+const dirLight = new THREE.DirectionalLight(0xffffff, 3.5);
+dirLight.position.set(100, 200, 100);
+dirLight.castShadow = true;
+scene.add(dirLight);
 
-// Terrain & Moon Zones
+// 🌌 Star Field with Twinkling Effect
+const starGeometry = new THREE.BufferGeometry();
+const starCount = 2000;
+const starPositions = [];
+const starSizes = [];
+
+for (let i = 0; i < starCount; i++) {
+  const r = 2000 + Math.random() * 1000;
+  const theta = Math.random() * 2 * Math.PI;
+  const phi = Math.acos(2 * Math.random() - 1);
+  const x = r * Math.sin(phi) * Math.cos(theta);
+  const y = r * Math.sin(phi) * Math.sin(theta);
+  const z = r * Math.cos(phi);
+  starPositions.push(x, y, z);
+  starSizes.push(1 + Math.random() * 1.5);
+}
+
+starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+starGeometry.setAttribute('size', new THREE.Float32BufferAttribute(starSizes, 1));
+
+const starMaterial = new THREE.PointsMaterial({
+  color: 0xffffff,
+  size: 2,
+  sizeAttenuation: true,
+  transparent: true,
+  opacity: 0.8,
+  depthWrite: false
+});
+
+const starField = new THREE.Points(starGeometry, starMaterial);
+scene.add(starField);
+
+// Terrain
 const rockColliders = [];
 createMoonZones(scene, './assets/textures/moon.jpg', rockColliders);
-
-// Set global crystalData after zone creation
 window.crystalData = crystalData;
 
 // UI
 setupUI();
-updateCrystalCounter(); // Call updateCrystalCounter from ui.js
+updateCrystalCounter();
 
 // Controls
 const controls = new PointerLockControls(camera, renderer.domElement);
@@ -62,7 +91,7 @@ scene.add(controls.getObject());
 setupControls(controls, camera, rockColliders);
 document.body.addEventListener('click', () => controls.lock());
 
-// Player Setup
+// Player
 const {
   bullets,
   turretBullets,
@@ -77,7 +106,7 @@ const {
 let playerHealth = 20;
 updateHealthBar(playerHealth);
 
-// Spawn enemies and airships
+// Spawning
 const zonePositions = [
   { name: "Landing Zone", x: 0, z: 0 },
   { name: "Crater Valley", x: 500, z: 0 },
@@ -98,11 +127,10 @@ zonePositions.forEach(zone => {
   }
 });
 
-// Key Input
+// Inputs
 document.addEventListener('keydown', (e) => {
   if (e.code === 'KeyE') {
     const activated = handleCrystalActivation(controls.getObject().position);
-    // No need to call updateCrystalCounter here, as it's handled inside handleCrystalActivation
     handleTaxiInteraction(controls.getObject().position);
   }
 });
@@ -120,8 +148,13 @@ function animate() {
   const time = clock.getElapsedTime();
 
   controls.update();
-  starDome.position.copy(camera.position);
-  // starDome.update?.(time); // Uncomment if starDome has an update method
+  starField.position.copy(camera.position);
+
+  const sizeAttr = starGeometry.attributes.size;
+  for (let i = 0; i < sizeAttr.count; i++) {
+    sizeAttr.array[i] = 1.5 + Math.sin(time * 2 + i) * 0.5;
+  }
+  sizeAttr.needsUpdate = true;
 
   updateEnemies(scene, delta, controls, enemies);
   updateAirships(scene, delta, controls, airships);
@@ -157,11 +190,16 @@ function animate() {
       return;
     }
     if (b.position.distanceTo(controls.getObject().position) < 0.6) {
-      playerHealth--;
+      playerHealth -= 0.5;
       updateHealthBar(playerHealth);
       scene.remove(b);
       arr.splice(i, 1);
-      if (playerHealth <= 0) alert('Game Over'), window.location.reload();
+      if (playerHealth <= 0) {
+  playerHealth = 0;
+  updateHealthBar(playerHealth);
+  alert('Game Over');
+  window.location.reload();
+}
     }
   });
 
@@ -179,12 +217,27 @@ function animate() {
     }
   });
 
+  // Rotate health packs slowly
+  healthPacks.forEach((hp, i) => {
+    hp.rotation.y += 0.01;
+
+    const dist = hp.position.distanceTo(controls.getObject().position);
+    if (dist < 2) {
+      playerHealth = Math.min(20, playerHealth + 5);
+      updateHealthBar(playerHealth);
+      scene.remove(hp);
+      console.log('💚 Picked up health pack');
+      healthPacks.splice(i, 1);
+    }
+  });
+
   turretMixers.forEach(m => m.update(delta));
   drawMinimap(camera, enemies, crystalData);
   showActivationPrompt(controls.getObject().position, crystalData);
 
   renderer.render(scene, camera);
 }
+
 animate();
 
 window.addEventListener('resize', () => {
