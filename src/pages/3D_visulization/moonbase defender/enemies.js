@@ -85,24 +85,36 @@ export function handleEnemyHits(scene, bullets, enemies, airships, turrets) {
         e.health--;
         scene.remove(b);
         bullets.splice(i, 1);
+
+        // 🔴 RED FLASH when health is low
+        if (e.health <= 1 && !e.userData.redFlashed) {
+          e.traverse(child => {
+            if (child.isMesh) {
+              child.material = child.material.clone();
+              child.material.emissive = new THREE.Color(0xff0000);
+              child.material.emissiveIntensity = 1.5;
+            }
+          });
+          e.userData.redFlashed = true;
+        }
+
+        // 💀 Enemy death and health drop
         if (e.health <= 0) {
           const dropPos = e.position.clone();
           setTimeout(() => {
             scene.remove(e);
             healthLoader.load('./assets/models/health.glb', gltf => {
               const pack = gltf.scene;
-            pack.scale.set(1.5, 1.5, 1.5);
-pack.position.copy(dropPos).add(new THREE.Vector3(0, 1, 0)); // elevate
-console.log('💊 Health pack dropped at', dropPos);
-
-pack.traverse(child => {
-  if (child.isMesh) {
-    child.material = child.material.clone(); // Optional if you want glow control
-    child.material.emissiveIntensity = 0.5;  // Keep slight glow, no color override
-  }
-});
-scene.add(pack);
-healthPacks.push(pack);
+              pack.scale.set(1.5, 1.5, 1.5);
+              pack.position.copy(dropPos).add(new THREE.Vector3(0, 1, 0));
+              pack.traverse(child => {
+                if (child.isMesh) {
+                  child.material = child.material.clone();
+                  child.material.emissiveIntensity = 0.5;
+                }
+              });
+              scene.add(pack);
+              healthPacks.push(pack);
             });
           }, 1000);
         }
