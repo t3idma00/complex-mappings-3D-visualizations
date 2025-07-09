@@ -219,7 +219,6 @@ function animate() {
       completedOrbits++;
     }
     lastAngle = angle;
-
     const simulatedYear = baseYear + completedOrbits;
     dateDisplay.textContent = `🕒 Year: ${simulatedYear}`;
   }
@@ -232,6 +231,34 @@ scene.add(new THREE.AxesHelper(10));
 animate();
 
 const panel = document.getElementById('controlPanel');
+
+// Sun Mass control FIRST
+const sunGroup = document.createElement('div');
+sunGroup.className = 'planet-group';
+
+const sunTitle = document.createElement('h4');
+sunTitle.textContent = "Sun";
+sunTitle.style.marginBottom = '5px';
+sunGroup.appendChild(sunTitle);
+
+const sunMassLabel = document.createElement('label');
+sunMassLabel.textContent = `Mass (${sun.mass.toFixed(0)})`;
+sunGroup.appendChild(sunMassLabel);
+
+const sunMassSlider = document.createElement('input');
+sunMassSlider.type = 'range';
+sunMassSlider.min = 10;
+sunMassSlider.max = 3000;
+sunMassSlider.step = 1;
+sunMassSlider.value = sun.mass;
+sunMassSlider.oninput = () => {
+  sun.mass = parseFloat(sunMassSlider.value);
+  sunMassLabel.textContent = `Mass (${sun.mass.toFixed(0)})`;
+};
+sunGroup.appendChild(sunMassSlider);
+panel.appendChild(sunGroup);
+
+// Then planets
 planets.forEach(planet => {
   const group = document.createElement('div');
   group.className = 'planet-group';
@@ -281,42 +308,4 @@ planets.forEach(planet => {
   panel.appendChild(group);
 });
 
-// Sun Mass Control 
-
-const sunGroup = document.createElement('div');
-sunGroup.className = 'planet-group';
-
-const sunTitle = document.createElement('h4');
-sunTitle.textContent = "Sun";
-sunTitle.style.marginBottom = '5px';
-sunGroup.appendChild(sunTitle);
-
-const sunMassLabel = document.createElement('label');
-sunMassLabel.textContent = `Mass (${sun.mass.toFixed(0)})`;
-sunGroup.appendChild(sunMassLabel);
-
-const sunMassSlider = document.createElement('input');
-sunMassSlider.type = 'range';
-sunMassSlider.min = 10;
-sunMassSlider.max = 3000;
-sunMassSlider.step = 1;
-sunMassSlider.value = sun.mass;
-sunMassSlider.oninput = () => {
-  sun.mass = parseFloat(sunMassSlider.value);
-  sunMassLabel.textContent = `Mass (${sun.mass.toFixed(0)})`;
-};
-sunGroup.appendChild(sunMassSlider);
-
-panel.appendChild(sunGroup);
-
 setupPlanetLanding(scene, camera, controls, planets, renderer);
-
-
-
-const htmlSunMassSlider = document.getElementById('sunMass');
-const htmlSunMassValue = document.getElementById('sunMassValue');
-htmlSunMassSlider.addEventListener('input', () => {
-  const mass = parseFloat(htmlSunMassSlider.value);
-  sun.mass = mass;
-  htmlSunMassValue.textContent = mass;
-});
