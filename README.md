@@ -35,6 +35,15 @@ This module features a set of interactive 3D experiences built using Three.js, s
 | **Robot Model**            | 3D animated robot walking in a textured environment.        |
 | **Mrble Ball Game**        | A casual physics-based ball game with user interaction.     |
  
+### 🌟 Preview Screenshots
+
+| ![Galaxy](screenshots/galaxy.png) | ![Marble Game](screenshots/marble%20game.png) |
+|:--:|:--:|
+| **Galaxy Simulation** | **Marble Game** |
+
+| ![Moonbase](screenshots/moonbase.png) | ![Robot Model](screenshots/robot.png) |
+|:--:|:--:|
+| **Moonbase Defender** | **Robot Model** |
 
 📚 Libraries & Tools Used:
 Three.js: Core 3D rendering engine
