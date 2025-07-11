@@ -22,3 +22,31 @@ This project is a collaborative effort between three members, each focusing on a
 
 ## 📁 Project Structure
 
+
+📦 Member 2: 3D Visualization
+This module features a set of interactive 3D experiences built using Three.js, simulating basic game mechanics and physics-driven environments. It focuses on user control, object interaction, and scene transitions in real time.
+
+| Demo                       | Description                                                 |
+| -------------------------- | ----------------------------------------------------------- |
+| **Galaxy Simulation**      | Real-time rotating galaxy visualization using particles.    |
+| **Moonbase Defender Game** | A mini first-person shooting game on a moon-like terrain.   |
+| **3D Cube Simulation**     | First-person cube controller with pointer lock and jumping. |
+| **Car Simulation**         | A simple driving demo using keyboard controls.              |
+| **Robot Model**            | 3D animated robot walking in a textured environment.        |
+| **Mrble Ball Game**        | A casual physics-based ball game with user interaction.     |
+ 
+
+📚 Libraries & Tools Used:
+Three.js: Core 3D rendering engine
+
+GLTFLoader: Load .glb/.gltf models
+
+PointerLockControls: For immersive first-person controls
+
+OrbitControls: Used in some scenes for mouse orbit interaction
+
+Vite: Fast dev server and module bundler
+
+cannon-es: For basic physics 
+
+GSAP: For smooth animations and transitions 
