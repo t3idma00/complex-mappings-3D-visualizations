@@ -16,22 +16,40 @@ export function spawnEnemy(scene, controls, enemies, enemyBullets, modelPath, x,
     scene.add(enemy);
     enemies.push(enemy);
 
-    setInterval(() => {
-      if (enemy.health <= 0) return;
-      const eye = enemy.position.clone(); eye.y += 5;
-      const dir = controls.getObject().position.clone().sub(eye).normalize();
-      const bullet = new THREE.Mesh(
-        new THREE.SphereGeometry(0.07, 12, 12),
-        new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000 })
-      );
-      bullet.position.copy(eye);
-      bullet.userData.velocity = dir.multiplyScalar(0.08);
-      bullet.userData.life = 10;
-      scene.add(bullet);
-      enemyBullets.push(bullet);
-    }, 2000);
+ setInterval(() => {
+  if (enemy.health <= 0) return;
+
+  const eye = enemy.position.clone();
+  eye.y += 5;
+
+  const dir = controls.getObject().position.clone().sub(eye).normalize();
+
+  const bulletGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8, 1, true);
+  bulletGeometry.rotateX(Math.PI / 2); // Rotate from Y to Z axis
+
+  const bulletMaterial = new THREE.MeshStandardMaterial({
+    color: 0xff2222,
+    emissive: 0xff0000,
+    emissiveIntensity: 5,
+    metalness: 0.2,
+    roughness: 0.1,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false
   });
-}
+
+  const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
+  bullet.position.copy(eye);
+  bullet.lookAt(controls.getObject().position); // Face player
+  bullet.userData.velocity = dir.multiplyScalar(0.4); // slow down speed temporarily
+  bullet.userData.life = 10;
+
+  scene.add(bullet);
+  enemyBullets.push(bullet);
+}, 2000);
+
+  });
+} 
 
 export function spawnAirship(scene, airships, airshipBombs, modelPath, x, z) {
   new GLTFLoader().load(modelPath, gltf => {

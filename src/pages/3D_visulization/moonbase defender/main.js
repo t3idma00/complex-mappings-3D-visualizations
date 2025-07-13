@@ -20,9 +20,12 @@ import {
 import { drawMinimap } from './minimap.js';
 import { setupUI, showActivationPrompt, updateCrystalCounter } from './ui.js';
 import { healthPacks } from './enemies.js';
+import { updateTaxiFlight } from './player.js';
+
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0.01);
+window.scene = scene; //  Needed for player.js
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 8000);
 camera.position.y = 2;
@@ -33,23 +36,17 @@ renderer.setClearColor(0x000000);
 document.body.appendChild(renderer.domElement);
 
 // Lights
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x555555, 2.0);
-scene.add(hemiLight);
-
-const ambient = new THREE.AmbientLight(0xffffff, 1.2);
-scene.add(ambient);
-
+scene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 2.0));
+scene.add(new THREE.AmbientLight(0xffffff, 1.2));
 const dirLight = new THREE.DirectionalLight(0xffffff, 3.5);
 dirLight.position.set(100, 200, 100);
 dirLight.castShadow = true;
 scene.add(dirLight);
 
-// 🌌 Star Field with Twinkling Effect
+// 🌌 Star Field
 const starGeometry = new THREE.BufferGeometry();
 const starCount = 2000;
-const starPositions = [];
-const starSizes = [];
-
+const starPositions = [], starSizes = [];
 for (let i = 0; i < starCount; i++) {
   const r = 2000 + Math.random() * 1000;
   const theta = Math.random() * 2 * Math.PI;
@@ -60,19 +57,9 @@ for (let i = 0; i < starCount; i++) {
   starPositions.push(x, y, z);
   starSizes.push(1 + Math.random() * 1.5);
 }
-
 starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
 starGeometry.setAttribute('size', new THREE.Float32BufferAttribute(starSizes, 1));
-
-const starMaterial = new THREE.PointsMaterial({
-  color: 0xffffff,
-  size: 2,
-  sizeAttenuation: true,
-  transparent: true,
-  opacity: 0.8,
-  depthWrite: false
-});
-
+const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 2, transparent: true, opacity: 0.8, depthWrite: false });
 const starField = new THREE.Points(starGeometry, starMaterial);
 scene.add(starField);
 
@@ -113,7 +100,6 @@ const zonePositions = [
   { name: "Ruined Base", x: 0, z: -500 },
   { name: "Power Hub", x: 500, z: -500 }
 ];
-
 zonePositions.forEach(zone => {
   for (let i = 0; i < 3; i++) {
     const offsetX = (Math.random() - 0.5) * 100;
@@ -131,7 +117,9 @@ zonePositions.forEach(zone => {
 document.addEventListener('keydown', (e) => {
   if (e.code === 'KeyE') {
     const activated = handleCrystalActivation(controls.getObject().position);
-    handleTaxiInteraction(controls.getObject().position);
+    if (activated) {
+      handleTaxiInteraction(controls.getObject().position);
+    }
   }
 });
 
@@ -166,10 +154,7 @@ function animate() {
     if (dist < 25 && t.cooldown <= 0) {
       const pos = t.object.position.clone(); pos.y += 2;
       const dir = controls.getObject().position.clone().sub(pos).normalize();
-      const bullet = new THREE.Mesh(
-        new THREE.SphereGeometry(0.06, 8, 8),
-        new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xff2222 })
-      );
+      const bullet = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xff2222 }));
       bullet.position.copy(pos);
       bullet.userData.velocity = dir.multiplyScalar(0.8);
       bullet.userData.life = 10;
@@ -190,16 +175,16 @@ function animate() {
       return;
     }
     if (b.position.distanceTo(controls.getObject().position) < 0.6) {
-      playerHealth -= 0.5;
+      playerHealth -= 0.1;
       updateHealthBar(playerHealth);
       scene.remove(b);
       arr.splice(i, 1);
       if (playerHealth <= 0) {
-  playerHealth = 0;
-  updateHealthBar(playerHealth);
-  alert('Game Over');
-  window.location.reload();
-}
+        playerHealth = 0;
+        updateHealthBar(playerHealth);
+        alert('Game Over');
+        window.location.reload();
+      }
     }
   });
 
@@ -217,16 +202,12 @@ function animate() {
     }
   });
 
-  // Rotate health packs slowly
   healthPacks.forEach((hp, i) => {
     hp.rotation.y += 0.01;
-
-    const dist = hp.position.distanceTo(controls.getObject().position);
-    if (dist < 2) {
+    if (hp.position.distanceTo(controls.getObject().position) < 2) {
       playerHealth = Math.min(20, playerHealth + 5);
       updateHealthBar(playerHealth);
       scene.remove(hp);
-      console.log('💚 Picked up health pack');
       healthPacks.splice(i, 1);
     }
   });
@@ -235,9 +216,19 @@ function animate() {
   drawMinimap(camera, enemies, crystalData);
   showActivationPrompt(controls.getObject().position, crystalData);
 
+  // Taxi animation
+  if (window.taxi && window.taxi.userData?.endPos && window.taxi.position.y > window.taxi.userData.endPos.y) {
+    window.taxi.position.y -= 0.3;
+    if (window.taxi.position.y < window.taxi.userData.endPos.y) {
+      window.taxi.position.y = window.taxi.userData.endPos.y;
+    }
+  }
+
+  updateTaxiFlight(controls);
+
+
   renderer.render(scene, camera);
 }
-
 animate();
 
 window.addEventListener('resize', () => {

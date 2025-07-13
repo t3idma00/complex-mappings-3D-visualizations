@@ -1,4 +1,4 @@
-// player.js
+
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { updateCrystalCounter } from './ui.js';
@@ -10,7 +10,6 @@ let taxi = null;
 let taxiActivated = false;
 let enteredTaxi = false;
 let currentWeapon = 'gun1';
-
 let gun1, gun2;
 
 export function setupPlayer(scene, camera) {
@@ -24,7 +23,6 @@ export function setupPlayer(scene, camera) {
     shootSound.setVolume(0.5);
   });
 
-  // Gun 1
   new GLTFLoader().load('./assets/models/gun.glb', gltf => {
     gun1 = gltf.scene;
     gun1.scale.set(0.3, 0.2, 0.3);
@@ -36,7 +34,6 @@ export function setupPlayer(scene, camera) {
     camera.add(gun1);
   });
 
-  // Gun 2
   new GLTFLoader().load('./assets/models/gun2.glb', gltf => {
     gun2 = gltf.scene;
     gun2.scale.set(0.3, 0.2, 0.3);
@@ -49,7 +46,6 @@ export function setupPlayer(scene, camera) {
     camera.add(gun2);
   });
 
-  // Weapon switch
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Digit1') {
       currentWeapon = 'gun1';
@@ -65,26 +61,7 @@ export function setupPlayer(scene, camera) {
     if (ui) ui.textContent = `🔫 ${currentWeapon.toUpperCase()}`;
   });
 
-  loadTaxiModel(scene);
-  return {
-    bullets,
-    turretBullets,
-    enemyBullets,
-    airshipBombs,
-    enemies,
-    airships,
-    shootSound
-  };
-}
-
-function loadTaxiModel(scene) {
-  new GLTFLoader().load('./assets/models/Taxi.glb', gltf => {
-    taxi = gltf.scene;
-    taxi.scale.set(4, 4, 4);
-    taxi.position.set(500, 0, -500);
-    taxi.visible = false;
-    scene.add(taxi);
-  });
+  return { bullets, turretBullets, enemyBullets, airshipBombs, enemies, airships, shootSound };
 }
 
 export function getMuzzle() {
@@ -107,13 +84,9 @@ export function handleShooting(scene, camera, bullets, shootSound) {
   } else {
     bullet = new THREE.Mesh(
       new THREE.TorusGeometry(0.1, 0.015, 8, 16),
-      new THREE.MeshStandardMaterial({
-        color: 0xff0000,
-        emissive: 0xff0000,
-        emissiveIntensity: 1
-      })
+      new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1 })
     );
-    bullet.rotation.x = Math.PI ; // Make ring face forward
+    bullet.rotation.x = Math.PI;
   }
 
   bullet.position.copy(muzzleWorld);
@@ -133,32 +106,23 @@ export function handleCrystalActivation(playerPos) {
       data.activated = true;
       activatedAny = true;
       data.object.traverse(child => {
-        if (child.isMesh) {
+        if (child.isMesh && child.material) {
           child.material = child.material.clone();
-          child.material.color.set(0x00ff99);
+          if (child.material.color) child.material.color.set(0x00ff99);
           child.material.opacity = 0.6;
           child.material.transparent = true;
-          child.material.emissive.set(0x00ff99);
+          if (child.material.emissive) child.material.emissive.set(0x00ff99);
           child.material.emissiveIntensity = 0.3;
         }
       });
     }
   }
-
-  if (activatedAny) {
-    updateCrystalCounter();
-  }
-
-  if (!taxiActivated && window.crystalData.every(d => d.activated)) {
+  if (activatedAny) updateCrystalCounter();
+  const allActivated = window.crystalData.every(d => d.activated);
+  if (!taxiActivated && allActivated && !window.taxi) {
     taxiActivated = true;
-    taxi.visible = true;
-    const msg = document.createElement('div');
-    msg.id = 'taxi-msg';
-    msg.textContent = ' All crystals activated. Find the spaceship!';
-    msg.style.cssText = 'position:fixed;top:60px;right:20px;font-family:monospace;font-size:18px;color:#0f0;background:#000a;padding:10px;border-radius:6px;z-index:1000';
-    document.body.appendChild(msg);
+    handleTaxiInteraction(playerPos);
   }
-
   return activatedAny;
 }
 
@@ -169,24 +133,82 @@ export function updateHealthBar(health) {
   bar.style.backgroundColor = percent < 20 ? 'red' : percent < 40 ? 'orange' : 'limegreen';
 }
 
-export function handleTaxiInteraction(playerPos) {
-  if (enteredTaxi || !taxiActivated || !taxi) return;
+export function handleTaxiInteraction(playerPosition) {
+  if (window.taxi || taxiActivated) return;
 
-  const dist = taxi.position.distanceTo(playerPos);
-  if (dist < 6) {
-    enteredTaxi = true;
-    const msg = document.getElementById('taxi-msg');
-    if (msg) msg.textContent = '🚀 Boarding spaceship...';
+  const loader = new GLTFLoader();
+  loader.load('./assets/models/Taxi.glb', gltf => {
+    const model = gltf.scene;
+    model.scale.set(3, 3, 3);
+    const startPos = playerPosition.clone().add(new THREE.Vector3(25, 80, 0));
+    const offset = new THREE.Vector3(350, -4, -150);
+    const endPos = playerPosition.clone().add(offset);
+    model.position.copy(startPos);
+    model.userData.endPos = endPos;
+    model.userData.hasLanded = false;
+    window.taxi = model;
+    window.scene.add(model);
+    const el = document.createElement('div');
+    el.id = 'taxi-msg';
+    el.textContent = '🚀 Taxi incoming! Wait for landing...';
+    el.style.cssText = 'position:fixed;top:60px;right:20px;font-family:monospace;font-size:18px;color:#0f0;background:#000a;padding:10px;border-radius:6px;z-index:1000';
+    document.body.appendChild(el);
+    setTimeout(() => { el.remove(); }, 6000);
+  });
+}
 
-    let t = 0;
-    const flyInterval = setInterval(() => {
-      taxi.position.y += 0.5;
-      t += 1;
-      if (t > 100) {
-        clearInterval(flyInterval);
-        alert('🎉 You escaped the Moonbase! Game Completed.');
-        window.location.reload();
+export function updateTaxiFlight(controls) {
+  const player = controls.getObject();
+  if (window.taxi && window.taxi.userData) {
+    const endPos = window.taxi.userData.endPos;
+    const taxiPos = window.taxi.position;
+    if (!window.taxi.userData.hasLanded && taxiPos.y > endPos.y) {
+      taxiPos.y -= 0.3;
+      if (taxiPos.y <= endPos.y) {
+        taxiPos.y = endPos.y;
+        window.taxi.userData.hasLanded = true;
       }
-    }, 50);
+    }
+    if (window.taxi.userData.hasLanded && !enteredTaxi) {
+      const dist = taxiPos.distanceTo(player.position);
+      if (dist < 5) {
+        if (!document.getElementById('enter-taxi-msg')) {
+          const el = document.createElement('div');
+          el.id = 'enter-taxi-msg';
+          el.textContent = ' Press E to enter the taxi';
+          el.style.cssText = 'position:fixed;top:100px;right:20px;font-family:monospace;font-size:18px;color:#0ff;background:#000a;padding:10px;border-radius:6px;z-index:1000';
+          document.body.appendChild(el);
+        }
+      } else {
+        const existing = document.getElementById('enter-taxi-msg');
+        if (existing) existing.remove();
+      }
+      if (dist < 5 && window.keyEPressedToEnter) {
+        enteredTaxi = true;
+        controls.unlock();
+        if (gun1) gun1.visible = false;
+        if (gun2) gun2.visible = false;
+        player.position.copy(taxiPos).add(new THREE.Vector3(0, 2, 0));
+        window.scene.attach(player);
+        const winText = document.createElement('div');
+        winText.textContent = 'You escaped the Moon Base! You Win!';
+        winText.style.cssText = 'position:fixed;top:100px;right:20px;font-family:monospace;font-size:24px;color:#00ff88;background:#000a;padding:12px;border-radius:6px;z-index:1000';
+        document.body.appendChild(winText);
+        const enterMsg = document.getElementById('enter-taxi-msg');
+        if (enterMsg) enterMsg.remove();
+      }
+    }
+  }
+  if (enteredTaxi && window.taxi) {
+    window.taxi.position.y += 0.5;
+    controls.getObject().position.y += 0.5;
   }
 }
+
+window.keyEPressedToEnter = false;
+window.addEventListener('keydown', e => {
+  if (e.code === 'KeyE') window.keyEPressedToEnter = true;
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'KeyE') window.keyEPressedToEnter = false;
+});
