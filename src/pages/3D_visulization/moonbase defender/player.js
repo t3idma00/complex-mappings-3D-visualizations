@@ -12,18 +12,49 @@ window.enteredTaxi = false;
 let currentWeapon = 'gun1';
 let gun1, gun2;
 
-let cameraMode = 'default'; // 'inside', 'outside'
+let cameraMode = 'default';
 let cameraSwitchTimer = 0;
+
+let taxiArrivalSound, launchSpeech, spaceshipHum, finalMusic;
 
 export function setupPlayer(scene, camera) {
   const bullets = [], turretBullets = [], enemyBullets = [], airshipBombs = [], enemies = [], airships = [];
 
   const listener = new THREE.AudioListener();
   camera.add(listener);
+
+  // shoot sound
   shootSound = new THREE.Audio(listener);
   new THREE.AudioLoader().load('./assets/sounds/shoot.mp3', buffer => {
     shootSound.setBuffer(buffer);
     shootSound.setVolume(0.5);
+  });
+
+  // Load all 4 additional sounds
+  taxiArrivalSound = new THREE.Audio(listener);
+  new THREE.AudioLoader().load('./assets/sounds/taxi_arrival.mp3', buffer => {
+    taxiArrivalSound.setBuffer(buffer);
+    taxiArrivalSound.setVolume(1);
+  });
+
+  launchSpeech = new THREE.Audio(listener);
+  new THREE.AudioLoader().load('./assets/sounds/launch_speech.mp3', buffer => {
+    launchSpeech.setBuffer(buffer);
+    launchSpeech.setVolume(1);
+  });
+
+  spaceshipHum = new THREE.Audio(listener);
+  new THREE.AudioLoader().load('./assets/sounds/spaceship_hum.mp3', buffer => {
+    spaceshipHum.setBuffer(buffer);
+    spaceshipHum.setLoop(true);
+    spaceshipHum.setVolume(0.4);
+  });
+
+  finalMusic = new THREE.Audio(listener);
+  new THREE.AudioLoader().load('./assets/sounds/Final_music.mp3', buffer => {
+    finalMusic.setBuffer(buffer);
+    finalMusic.setLoop(true);
+    finalMusic.setVolume(0.6);
   });
 
   new GLTFLoader().load('./assets/models/gun.glb', gltf => {
@@ -51,7 +82,6 @@ export function setupPlayer(scene, camera) {
 
   window.addEventListener('keydown', (e) => {
     if (window.inEndSequence) return;
-
     if (e.code === 'Digit1') {
       currentWeapon = 'gun1';
       if (gun1) gun1.visible = true;
@@ -147,7 +177,7 @@ export function handleTaxiInteraction(playerPosition) {
   loader.load('./assets/models/Taxi.glb', gltf => {
     const model = gltf.scene;
     model.scale.set(3, 3, 3);
-    model.rotation.y = Math.PI; // Rotate taxi 180° to face forward
+    model.rotation.y = Math.PI;
 
     const startPos = playerPosition.clone().add(new THREE.Vector3(25, 80, 0));
     const offset = new THREE.Vector3(30, -4, -30);
@@ -157,9 +187,13 @@ export function handleTaxiInteraction(playerPosition) {
     model.userData.hasLanded = false;
     window.taxi = model;
     window.scene.add(model);
+
+    // Play taxi arrival sound
+    if (taxiArrivalSound && !taxiArrivalSound.isPlaying) taxiArrivalSound.play();
+
     const el = document.createElement('div');
     el.id = 'taxi-msg';
-    el.textContent = '🚀 Taxi incoming! Wait for landing...';
+    el.textContent = 'Space Taxi incoming! Wait for landing...';
     el.style.cssText = 'position:fixed;top:60px;right:20px;font-family:monospace;font-size:18px;color:#0f0;background:#000a;padding:10px;border-radius:6px;z-index:1000';
     document.body.appendChild(el);
     setTimeout(() => { el.remove(); }, 6000);
@@ -174,7 +208,6 @@ export function updateTaxiFlight(controls) {
     const endPos = window.taxi.userData.endPos;
     const taxiPos = window.taxi.position;
 
-    // Landing phase
     if (!window.taxi.userData.hasLanded && taxiPos.y > endPos.y) {
       taxiPos.y -= 0.3;
       if (taxiPos.y <= endPos.y) {
@@ -183,7 +216,6 @@ export function updateTaxiFlight(controls) {
       }
     }
 
-    // Entering phase
     if (window.taxi.userData.hasLanded && !enteredTaxi) {
       const taxiBox = new THREE.Box3().setFromObject(window.taxi);
       const taxiEntrance = new THREE.Vector3(
@@ -227,6 +259,8 @@ export function updateTaxiFlight(controls) {
         window.taxi.add(cameraObj);
         cameraObj.position.set(0, 3, 0);
 
+        if (launchSpeech && !launchSpeech.isPlaying) launchSpeech.play();
+
         const winText = document.createElement('div');
         winText.textContent = 'You escaped the Moon Base! You Win!';
         winText.style.cssText = 'position:fixed;top:100px;right:20px;font-family:monospace;font-size:24px;color:#00ff88;background:#000a;padding:12px;border-radius:6px;z-index:1000';
@@ -237,43 +271,44 @@ export function updateTaxiFlight(controls) {
       }
     }
 
-    // Flight phase
-   if (enteredTaxi) {
-  if (cameraMode === 'inside') {
-    cameraSwitchTimer += 0.016;
-    if (cameraSwitchTimer > 5) {
-      cameraMode = 'outside';
-      window.scene.attach(cameraObj);
-     const targetPos = window.taxi.position.clone().add(new THREE.Vector3(0, 4, -60));
-cameraObj.position.lerp(targetPos, 0.03);
-      window.flightTimer = 0;
+    if (enteredTaxi) {
+      if (cameraMode === 'inside') {
+        cameraSwitchTimer += 0.016;
+        if (cameraSwitchTimer > 5) {
+          cameraMode = 'outside';
+          window.scene.attach(cameraObj);
+          const targetPos = window.taxi.position.clone().add(new THREE.Vector3(0, 4, -60));
+          cameraObj.position.lerp(targetPos, 0.03);
+          window.flightTimer = 0;
+
+          // Start spaceship hum
+          if (spaceshipHum && !spaceshipHum.isPlaying) spaceshipHum.play();
+        }
+      }
+
+      if (cameraMode === 'outside') {
+        window.flightTimer += 0.016;
+
+        if (window.flightTimer < 4) {
+          window.taxi.position.y += 0.2;
+        } else {
+          window.taxi.position.y += 0.05;
+          window.taxi.position.z -= 0.5;
+
+          // 🎵 Play final music
+          if (finalMusic && !finalMusic.isPlaying) finalMusic.play();
+        }
+
+        const followOffset = new THREE.Vector3(0, 10, -50);
+        const targetPos = window.taxi.position.clone().add(followOffset);
+        cameraObj.position.lerp(targetPos, 0.04);
+        cameraObj.lookAt(window.taxi.position.clone());
+      }
     }
-  }
-
-  if (cameraMode === 'outside') {
-    window.flightTimer += 0.016;
-
-    if (window.flightTimer < 4) {
-      // 🔼 Phase 1: vertical lift
-      window.taxi.position.y += 0.2;
-    } else {
-      // ➡️ Phase 2: forward flight
-      window.taxi.position.y += 0.05;
-      window.taxi.position.z -= 0.5;
-    }
-
-const followOffset = new THREE.Vector3(0, 10, -50);
-    const targetPos = window.taxi.position.clone().add(followOffset);
-    cameraObj.position.lerp(targetPos, 0.04);
-    cameraObj.lookAt(window.taxi.position.clone());
   }
 }
 
-  }
-}
-
-
-// E press
+// Key press
 window.keyEPressedToEnter = false;
 window.addEventListener('keydown', e => {
   if (e.code === 'KeyE') window.keyEPressedToEnter = true;
