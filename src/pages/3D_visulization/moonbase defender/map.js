@@ -26,13 +26,17 @@ export function createMoonZones(scene, texturePath, rockColliders) {
     groundTex.wrapS = groundTex.wrapT = THREE.RepeatWrapping;
     groundTex.repeat.set(10, 10);
 
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(500, 500),
-      new THREE.MeshBasicMaterial({ map: groundTex })
-    );
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(500, 500),
+  new THREE.MeshStandardMaterial({ map: groundTex })
+);
+ground.receiveShadow = true;
+
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(x, 0, z);
     scene.add(ground);
+
+
 
     const label = createZoneLabelMesh(name);
     label.position.set(x, 0.1, z);

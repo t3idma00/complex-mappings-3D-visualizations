@@ -22,10 +22,9 @@ import { setupUI, showActivationPrompt, updateCrystalCounter } from './ui.js';
 import { healthPacks } from './enemies.js';
 import { updateTaxiFlight } from './player.js';
 
-
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0.01);
-window.scene = scene; //  Needed for player.js
+window.scene = scene;
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 8000);
 camera.position.y = 2;
@@ -33,17 +32,28 @@ camera.position.y = 2;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 // Lights
 scene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 2.0));
 scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+
 const dirLight = new THREE.DirectionalLight(0xffffff, 3.5);
 dirLight.position.set(100, 200, 100);
 dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 500;
+dirLight.shadow.camera.left = -200;
+dirLight.shadow.camera.right = 200;
+dirLight.shadow.camera.top = 200;
+dirLight.shadow.camera.bottom = -200;
 scene.add(dirLight);
 
-// 🌌 Star Field
+// Star field
 const starGeometry = new THREE.BufferGeometry();
 const starCount = 2000;
 const starPositions = [], starSizes = [];
@@ -76,7 +86,9 @@ updateCrystalCounter();
 const controls = new PointerLockControls(camera, renderer.domElement);
 scene.add(controls.getObject());
 setupControls(controls, camera, rockColliders);
-document.body.addEventListener('click', () => controls.lock());
+document.body.addEventListener('click', () => {
+  if (!window.inEndSequence) controls.lock();
+});
 
 // Player
 const {
@@ -113,17 +125,24 @@ zonePositions.forEach(zone => {
   }
 });
 
-// Inputs
+// Input events
 document.addEventListener('keydown', (e) => {
-  if (e.code === 'KeyE') {
-    const activated = handleCrystalActivation(controls.getObject().position);
-    if (activated) {
-      handleTaxiInteraction(controls.getObject().position);
-    }
+if (e.code === 'KeyE') {
+  const activated = handleCrystalActivation(controls.getObject().position);
+  if (activated) {
+    handleTaxiInteraction(controls.getObject().position);
   }
+
+  // ✅ If taxi is already landed and not entered, allow entering it
+  if (window.taxi && window.taxi.userData?.hasLanded && !window.enteredTaxi) {
+    window.keyEPressedToEnter = true;
+  }
+}
+
 });
 
 window.addEventListener('click', () => {
+  if (window.inEndSequence) return; // ❌ Don't shoot in end sequence
   if (!controls.isLocked || !getMuzzle()) return;
   handleShooting(scene, camera, bullets, shootSound);
 });
@@ -135,7 +154,9 @@ function animate() {
   const delta = clock.getDelta();
   const time = clock.getElapsedTime();
 
+  if (!window.enteredTaxi) {
   controls.update();
+}
   starField.position.copy(camera.position);
 
   const sizeAttr = starGeometry.attributes.size;
@@ -216,17 +237,9 @@ function animate() {
   drawMinimap(camera, enemies, crystalData);
   showActivationPrompt(controls.getObject().position, crystalData);
 
-  // Taxi animation
-  if (window.taxi && window.taxi.userData?.endPos && window.taxi.position.y > window.taxi.userData.endPos.y) {
-    window.taxi.position.y -= 0.3;
-    if (window.taxi.position.y < window.taxi.userData.endPos.y) {
-      window.taxi.position.y = window.taxi.userData.endPos.y;
-    }
-  }
+
 
   updateTaxiFlight(controls);
-
-
   renderer.render(scene, camera);
 }
 animate();
@@ -235,4 +248,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+});
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'KeyE') window.keyEPressedToEnter = false;
 });

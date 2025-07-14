@@ -1,4 +1,3 @@
-
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { updateCrystalCounter } from './ui.js';
@@ -9,8 +8,12 @@ let shootSound = null;
 let taxi = null;
 let taxiActivated = false;
 let enteredTaxi = false;
+window.enteredTaxi = false;
 let currentWeapon = 'gun1';
 let gun1, gun2;
+
+let cameraMode = 'default'; // 'inside', 'outside'
+let cameraSwitchTimer = 0;
 
 export function setupPlayer(scene, camera) {
   const bullets = [], turretBullets = [], enemyBullets = [], airshipBombs = [], enemies = [], airships = [];
@@ -47,6 +50,8 @@ export function setupPlayer(scene, camera) {
   });
 
   window.addEventListener('keydown', (e) => {
+    if (window.inEndSequence) return;
+
     if (e.code === 'Digit1') {
       currentWeapon = 'gun1';
       if (gun1) gun1.visible = true;
@@ -69,6 +74,8 @@ export function getMuzzle() {
 }
 
 export function handleShooting(scene, camera, bullets, shootSound) {
+  if (window.inEndSequence) return;
+
   const shootDirection = new THREE.Vector3();
   const muzzleWorld = new THREE.Vector3();
   const activeMuzzle = getMuzzle();
@@ -140,8 +147,10 @@ export function handleTaxiInteraction(playerPosition) {
   loader.load('./assets/models/Taxi.glb', gltf => {
     const model = gltf.scene;
     model.scale.set(3, 3, 3);
+    model.rotation.y = Math.PI; // Rotate taxi 180° to face forward
+
     const startPos = playerPosition.clone().add(new THREE.Vector3(25, 80, 0));
-    const offset = new THREE.Vector3(350, -4, -150);
+    const offset = new THREE.Vector3(30, -4, -30);
     const endPos = playerPosition.clone().add(offset);
     model.position.copy(startPos);
     model.userData.endPos = endPos;
@@ -159,9 +168,13 @@ export function handleTaxiInteraction(playerPosition) {
 
 export function updateTaxiFlight(controls) {
   const player = controls.getObject();
+  const cameraObj = player;
+
   if (window.taxi && window.taxi.userData) {
     const endPos = window.taxi.userData.endPos;
     const taxiPos = window.taxi.position;
+
+    // Landing phase
     if (!window.taxi.userData.hasLanded && taxiPos.y > endPos.y) {
       taxiPos.y -= 0.3;
       if (taxiPos.y <= endPos.y) {
@@ -169,8 +182,18 @@ export function updateTaxiFlight(controls) {
         window.taxi.userData.hasLanded = true;
       }
     }
+
+    // Entering phase
     if (window.taxi.userData.hasLanded && !enteredTaxi) {
-      const dist = taxiPos.distanceTo(player.position);
+      const taxiBox = new THREE.Box3().setFromObject(window.taxi);
+      const taxiEntrance = new THREE.Vector3(
+        taxiBox.max.x - 2,
+        taxiBox.min.y + 1.2,
+        taxiBox.max.z - 2
+      );
+      const playerPos = player.position.clone();
+      const dist = taxiEntrance.distanceTo(playerPos);
+
       if (dist < 5) {
         if (!document.getElementById('enter-taxi-msg')) {
           const el = document.createElement('div');
@@ -183,28 +206,74 @@ export function updateTaxiFlight(controls) {
         const existing = document.getElementById('enter-taxi-msg');
         if (existing) existing.remove();
       }
+
       if (dist < 5 && window.keyEPressedToEnter) {
         enteredTaxi = true;
+        window.enteredTaxi = true;
+        window.inEndSequence = true;
+
+        const crosshair = document.getElementById('crosshair');
+        if (crosshair) crosshair.style.display = 'none';
+
+        cameraMode = 'inside';
+        cameraSwitchTimer = 0;
+
         controls.unlock();
+        controls.enabled = false;
         if (gun1) gun1.visible = false;
         if (gun2) gun2.visible = false;
-        player.position.copy(taxiPos).add(new THREE.Vector3(0, 2, 0));
-        window.scene.attach(player);
+        player.visible = false;
+
+        window.taxi.add(cameraObj);
+        cameraObj.position.set(0, 3, 0);
+
         const winText = document.createElement('div');
         winText.textContent = 'You escaped the Moon Base! You Win!';
         winText.style.cssText = 'position:fixed;top:100px;right:20px;font-family:monospace;font-size:24px;color:#00ff88;background:#000a;padding:12px;border-radius:6px;z-index:1000';
         document.body.appendChild(winText);
+
         const enterMsg = document.getElementById('enter-taxi-msg');
         if (enterMsg) enterMsg.remove();
       }
     }
+
+    // Flight phase
+   if (enteredTaxi) {
+  if (cameraMode === 'inside') {
+    cameraSwitchTimer += 0.016;
+    if (cameraSwitchTimer > 5) {
+      cameraMode = 'outside';
+      window.scene.attach(cameraObj);
+     const targetPos = window.taxi.position.clone().add(new THREE.Vector3(0, 4, -60));
+cameraObj.position.lerp(targetPos, 0.03);
+      window.flightTimer = 0;
+    }
   }
-  if (enteredTaxi && window.taxi) {
-    window.taxi.position.y += 0.5;
-    controls.getObject().position.y += 0.5;
+
+  if (cameraMode === 'outside') {
+    window.flightTimer += 0.016;
+
+    if (window.flightTimer < 4) {
+      // 🔼 Phase 1: vertical lift
+      window.taxi.position.y += 0.2;
+    } else {
+      // ➡️ Phase 2: forward flight
+      window.taxi.position.y += 0.05;
+      window.taxi.position.z -= 0.5;
+    }
+
+const followOffset = new THREE.Vector3(0, 10, -50);
+    const targetPos = window.taxi.position.clone().add(followOffset);
+    cameraObj.position.lerp(targetPos, 0.04);
+    cameraObj.lookAt(window.taxi.position.clone());
   }
 }
 
+  }
+}
+
+
+// E press
 window.keyEPressedToEnter = false;
 window.addEventListener('keydown', e => {
   if (e.code === 'KeyE') window.keyEPressedToEnter = true;
