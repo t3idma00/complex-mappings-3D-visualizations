@@ -5,6 +5,12 @@ import { updateCrystalCounter } from './ui.js';
 let muzzle = null;
 let muzzle2 = null;
 let shootSound = null;
+let isWalking = false;
+let gunBobTimer = 0;
+let recoilTimer = 0;
+let recoilActive = false;
+
+
 let taxi = null;
 let taxiActivated = false;
 let enteredTaxi = false;
@@ -133,6 +139,7 @@ export function handleShooting(scene, camera, bullets, shootSound) {
   bullets.push(bullet);
 
   if (shootSound.isPlaying) shootSound.stop();
+  shootKick = 0.1;
   shootSound.play();
 }
 
@@ -316,3 +323,30 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => {
   if (e.code === 'KeyE') window.keyEPressedToEnter = false;
 });
+
+
+// Gun bobbing and recoil logic
+let bobTime = 0;
+let shootKick = 0;
+
+export function updateGunAnimation(delta) {
+  if (window.inEndSequence) return;
+  bobTime += delta * 8;
+
+  // Walking bob effect
+  const amplitude = window.isPlayerWalking ? 0.02 : 0;
+  const offsetX = Math.sin(bobTime) * amplitude;
+  const offsetY = Math.cos(bobTime * 2) * amplitude;
+
+  // Recoil kick logic
+  shootKick *= 0.9; // decay
+  const recoilZ = -shootKick;
+
+  // Apply to visible gun
+  const gun = currentWeapon === 'gun1' ? gun1 : gun2;
+  if (gun && gun.visible) {
+    gun.position.x = (currentWeapon === 'gun1' ? 0.2 : 0.2) + offsetX;
+    gun.position.y = (currentWeapon === 'gun1' ? -0.2 : -0.15) + offsetY;
+    gun.position.z = (currentWeapon === 'gun1' ? -0.7 : -0.3) + recoilZ;
+  }
+}

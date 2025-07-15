@@ -30,6 +30,10 @@ export function setupControls(controls, camera, rockColliders) {
 
   controls.update = function () {
     const delta = 0.05;
+
+    // ✅ Add this line to expose walk state to other scripts
+    window.isPlayerWalking = move.forward || move.backward || move.left || move.right;
+
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
     velocity.y -= 1.62 * 2.0 * delta; // Reduced gravity for Moon

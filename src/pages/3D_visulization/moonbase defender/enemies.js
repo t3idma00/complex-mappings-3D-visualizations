@@ -5,6 +5,20 @@ import { AnimationMixer, Box3 } from 'three';
 const healthLoader = new GLTFLoader();
 export const healthPacks = [];
 
+const enemySoundLoader = new THREE.AudioLoader();
+let enemy1SoundBuffer = null;
+let enemyGunSoundBuffer = null;
+
+// Load idle ambient sound for enemy
+enemySoundLoader.load('./assets/sounds/enemy1_sound.mp3', buffer => {
+  enemy1SoundBuffer = buffer;
+});
+
+// Load enemy gun fire sound
+enemySoundLoader.load('./assets/sounds/Enemygun_sound.mp3', buffer => {
+  enemyGunSoundBuffer = buffer;
+});
+
 export function spawnEnemy(scene, controls, enemies, enemyBullets, modelPath, x, z) {
   new GLTFLoader().load(modelPath, gltf => {
     const enemy = gltf.scene;
@@ -14,48 +28,66 @@ export function spawnEnemy(scene, controls, enemies, enemyBullets, modelPath, x,
     enemy.mixer = new AnimationMixer(enemy);
     enemy.mixer.clipAction(gltf.animations[0]).play();
 
-    // ✅ Enable shadow casting
     enemy.traverse(child => {
       if (child.isMesh) {
         child.castShadow = true;
-        child.receiveShadow = true; // optional, only if enemy should also catch shadows
+        child.receiveShadow = true;
       }
     });
+
+    const listener = controls.getObject().children.find(child => child.type === 'AudioListener');
+
+    if (enemy1SoundBuffer && listener) {
+      const idleSound = new THREE.PositionalAudio(listener);
+      idleSound.setBuffer(enemy1SoundBuffer);
+      idleSound.setRefDistance(15);
+      idleSound.setLoop(true);
+      idleSound.setVolume(0.6); // ✅ softer idle hum
+      enemy.add(idleSound);
+      idleSound.play();
+      enemy.userData.idleSound = idleSound;
+    }
 
     scene.add(enemy);
     enemies.push(enemy);
 
-    setInterval(() => {
-      if (enemy.health <= 0) return;
+    const shootInterval = setInterval(() => {
+  if (enemy.health <= 0) {
+    clearInterval(shootInterval);
+    return;
+  }
 
-      const eye = enemy.position.clone();
-      eye.y += 5;
+  const eye = enemy.position.clone();
+  eye.y += 5;
+  const dir = controls.getObject().position.clone().sub(eye).normalize();
 
-      const dir = controls.getObject().position.clone().sub(eye).normalize();
+  const bulletGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8, 1, true);
+  bulletGeometry.rotateX(Math.PI / 2);
 
-      const bulletGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8, 1, true);
-      bulletGeometry.rotateX(Math.PI / 2);
+  const bulletMaterial = new THREE.MeshStandardMaterial({
+    color: 0xff2222,
+    emissive: 0xff0000,
+    emissiveIntensity: 5,
+    metalness: 0.2,
+    roughness: 0.1,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false
+  });
 
-      const bulletMaterial = new THREE.MeshStandardMaterial({
-        color: 0xff2222,
-        emissive: 0xff0000,
-        emissiveIntensity: 5,
-        metalness: 0.2,
-        roughness: 0.1,
-        transparent: true,
-        opacity: 0.9,
-        depthWrite: false
-      });
+  const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
+  bullet.position.copy(eye);
+  bullet.lookAt(controls.getObject().position);
+  bullet.userData.velocity = dir.multiplyScalar(0.4);
+  bullet.userData.life = 10;
 
-      const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
-      bullet.position.copy(eye);
-      bullet.lookAt(controls.getObject().position);
-      bullet.userData.velocity = dir.multiplyScalar(0.4);
-      bullet.userData.life = 10;
+  scene.add(bullet);
+  enemyBullets.push(bullet);
 
-      scene.add(bullet);
-      enemyBullets.push(bullet);
-    }, 2000);
+ 
+
+}, 1000); // faster shooting
+;
   });
 }
 
@@ -113,7 +145,6 @@ export function handleEnemyHits(scene, bullets, enemies, airships, turrets) {
         scene.remove(b);
         bullets.splice(i, 1);
 
-        // 🔴 RED FLASH when health is low
         if (e.health <= 1 && !e.userData.redFlashed) {
           e.traverse(child => {
             if (child.isMesh) {
@@ -125,8 +156,10 @@ export function handleEnemyHits(scene, bullets, enemies, airships, turrets) {
           e.userData.redFlashed = true;
         }
 
-        // 💀 Enemy death and health drop
         if (e.health <= 0) {
+           if (e.userData.idleSound && e.userData.idleSound.isPlaying) {
+    e.userData.idleSound.stop();
+  }
           const dropPos = e.position.clone();
           setTimeout(() => {
             scene.remove(e);
