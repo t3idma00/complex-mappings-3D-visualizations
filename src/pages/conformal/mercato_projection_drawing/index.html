@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Textured Globe with Mercator Projection</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div>
+      <h2>3D Globe</h2>
+      <input type="file" id="upload" accept="image/*" />
+      <canvas id="globe" width="500" height="500"></canvas>
+    </div>
+    <div>
+      <h2>2D Mercator Projection</h2>
+      <canvas id="map" width="500" height="500"></canvas>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
