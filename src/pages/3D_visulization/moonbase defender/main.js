@@ -1,4 +1,4 @@
-// main.js
+
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { setupControls } from './controls.js';
@@ -23,6 +23,12 @@ import {
 import { drawMinimap } from './minimap.js';
 import { setupUI, showActivationPrompt, updateCrystalCounter } from './ui.js';
 import { healthPacks } from './enemies.js';
+
+
+const params = new URLSearchParams(window.location.search);
+window.gameDifficulty = params.get('difficulty') || 'Normal';
+console.log("Difficulty:", window.gameDifficulty);
+
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0.01);
@@ -98,6 +104,27 @@ const {
   shootSound
 } = setupPlayer(scene, camera);
 
+// Difficulty modifiers
+let enemyCount = 3;
+let enemyDamage = 0.1;
+let enemyHealth = 20;
+
+switch (window.gameDifficulty) {
+  case 'Easy':
+    enemyCount = 2;
+    enemyDamage = 0.05;
+    enemyHealth = 10;
+    break;
+  case 'Hard':
+    enemyCount = 5;
+    enemyDamage = 0.2;
+    enemyHealth = 30;
+    break;
+  // Normal is default
+}
+
+
+
 let playerHealth = 20;
 updateHealthBar(playerHealth);
 
@@ -108,11 +135,12 @@ updateHealthBar(playerHealth);
   { name: 'Ruined Base', x: 0, z: -500 },
   { name: 'Power Hub', x: 500, z: -500 }
 ].forEach(zone => {
-  for (let i = 0; i < 3; i++) {
-    const x = zone.x + (Math.random() - 0.5) * 100;
-    const z = zone.z + (Math.random() - 0.5) * 100;
-    spawnEnemy(scene, controls, enemies, enemyBullets, './assets/models/enemy1.glb', x, z);
-  }
+  for (let i = 0; i < enemyCount; i++) {
+  const x = zone.x + (Math.random() - 0.5) * 100;
+  const z = zone.z + (Math.random() - 0.5) * 100;
+  const enemy = spawnEnemy(scene, controls, enemies, enemyBullets, './assets/models/enemy1.glb', x, z);
+  if (enemy) enemy.userData.health = enemyHealth; //  custom HP per difficulty
+}
   for (let i = 0; i < 3; i++) {
     const x = zone.x + (Math.random() - 0.5) * 100;
     const z = zone.z + (Math.random() - 0.5) * 100;
@@ -195,13 +223,13 @@ function animate() {
     b.userData.life -= delta;
     if (b.userData.life <= 0) return scene.remove(b), arr.splice(i, 1);
     if (b.position.distanceTo(controls.getObject().position) < 0.6) {
-      playerHealth -= 0.1;
-      updateHealthBar(playerHealth);
-      scene.remove(b); arr.splice(i, 1);
-      if (playerHealth <= 0) {
-        updateHealthBar(0); alert('Game Over'); window.location.reload();
-      }
-    }
+  playerHealth -= enemyDamage; // 👈 use difficulty-based damage
+  updateHealthBar(playerHealth);
+  scene.remove(b); arr.splice(i, 1);
+  if (playerHealth <= 0) {
+    updateHealthBar(0); alert('Game Over'); window.location.reload();
+  }
+}
   });
 
   airshipBombs.forEach((b, i) => {
