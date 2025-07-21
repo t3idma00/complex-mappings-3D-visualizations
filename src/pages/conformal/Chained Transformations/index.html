@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Conformal Map Chains</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.5.0/math.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+
+  
+</head>
+<body>
+  <h1>Conformal Mapping: Chained Transformations</h1>
+
+  <div class="controls">
+    <input id="fInput" placeholder="f(z) e.g. z^2" />
+    <input id="gInput" placeholder="g(z) e.g. sin(z)" />
+    <input id="hInput" placeholder="h(z) e.g. exp(z)" />
+    <button onclick="renderAll()">Apply</button>
+  </div>
+
+  <div class="canvas-wrapper">
+    <div>
+      <h3>w = f(z)</h3>
+      <div id="canvas-f" class="canvas-box"></div>
+    </div>
+    <div>
+      <h3>w = g(f(z))</h3>
+      <div id="canvas-g" class="canvas-box"></div>
+    </div>
+    <div>
+      <h3>w = h(g(f(z)))</h3>
+      <div id="canvas-h" class="canvas-box"></div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
