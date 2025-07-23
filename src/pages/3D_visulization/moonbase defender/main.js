@@ -58,24 +58,59 @@ dirLight.shadow.camera.top = 200;
 dirLight.shadow.camera.bottom = -200;
 scene.add(dirLight);
 
+const textureLoader = new THREE.TextureLoader();
+
+
+// Star Field
+// Replace your current star field code with this:
+
 // Star Field
 const starGeometry = new THREE.BufferGeometry();
-const starPositions = [], starSizes = [];
-for (let i = 0; i < 2000; i++) {
-  const r = 2000 + Math.random() * 1000;
-  const theta = Math.random() * 2 * Math.PI;
+const starPositions = [], starColors = [], starSizes = [];
+const color = new THREE.Color();
+
+// Create a much denser star field
+for (let i = 0; i < 5000; i++) {  // Amount of stars
+  // Create a sphere of stars with larger radius
+  const radius = 5000;  
+  
+  // Better spherical distribution
+  const theta = Math.random() * Math.PI * 2;
   const phi = Math.acos(2 * Math.random() - 1);
+  
   starPositions.push(
-    r * Math.sin(phi) * Math.cos(theta),
-    r * Math.sin(phi) * Math.sin(theta),
-    r * Math.cos(phi)
+    radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.sin(phi) * Math.sin(theta),
+    radius * Math.cos(phi)
   );
-  starSizes.push(1 + Math.random() * 1.5);
+  
+  // More visible color variation
+  const hue = Math.random() * 0.2;  // Increased color variation range
+  const saturation = Math.random() * 0.3;
+  const lightness = 0.8 + Math.random() * 0.2;  // Brighter stars
+  color.setHSL(hue, saturation, lightness);
+  starColors.push(color.r, color.g, color.b);
+  
+  // Larger size variation
+  starSizes.push(1.5 + Math.random() * 3);  // Larger stars
 }
+
 starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+starGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
 starGeometry.setAttribute('size', new THREE.Float32BufferAttribute(starSizes, 1));
-const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 2, opacity: 0.8, transparent: true });
+
+const starMaterial = new THREE.PointsMaterial({
+  size: 2,  // star base size
+  sizeAttenuation: false,  
+  vertexColors: true,
+  transparent: true,
+  opacity: 1,
+  fog: false,
+  depthWrite: false  // Important for rendering order
+});
+
 const starField = new THREE.Points(starGeometry, starMaterial);
+starField.renderOrder = -1;  // Render before other objects
 scene.add(starField);
 
 // Controls
@@ -120,7 +155,7 @@ switch (window.gameDifficulty) {
     enemyDamage = 0.2;
     enemyHealth = 30;
     break;
-  // Normal is default
+
 }
 
 
@@ -179,17 +214,18 @@ function animate() {
     updateGunAnimation(delta);
   }
 
-  starField.position.copy(camera.position);
-  const sizeAttr = starGeometry.attributes.size;
+    starField.position.copy(camera.position);
+' '
+ const sizeAttr = starGeometry.attributes.size;
   for (let i = 0; i < sizeAttr.count; i++) {
-    sizeAttr.array[i] = 1.5 + Math.sin(time * 2 + i) * 0.5;
+    sizeAttr.array[i] = 1.5 + Math.sin(time * 3 + i) * 1.5;
   }
   sizeAttr.needsUpdate = true;
 
   updateEnemies(scene, delta, controls, enemies);
   updateAirships(scene, delta, controls, airships);
 
-  // 🔫 Turret fire logic (NO sound)
+  //Turret fire logic 
   turrets.forEach(t => {
     if (t.health <= 0) return;
     t.cooldown -= delta;
@@ -223,7 +259,7 @@ function animate() {
     b.userData.life -= delta;
     if (b.userData.life <= 0) return scene.remove(b), arr.splice(i, 1);
     if (b.position.distanceTo(controls.getObject().position) < 0.6) {
-  playerHealth -= enemyDamage; // 👈 use difficulty-based damage
+  playerHealth -= enemyDamage; // use difficulty based damage
   updateHealthBar(playerHealth);
   scene.remove(b); arr.splice(i, 1);
   if (playerHealth <= 0) {
