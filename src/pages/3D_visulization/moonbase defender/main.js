@@ -61,8 +61,6 @@ scene.add(dirLight);
 const textureLoader = new THREE.TextureLoader();
 
 
-// Star Field
-// Replace your current star field code with this:
 
 // Star Field
 const starGeometry = new THREE.BufferGeometry();
