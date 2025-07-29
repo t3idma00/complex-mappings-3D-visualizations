@@ -5,16 +5,16 @@ let carGroup, tires = [];
 let isBraking = false;
 let carPositionX = -40;
 let speedKmh = 60;
-let speed = speedKmh / 3.6; // m/s
+let speed = speedKmh / 3.6;
 const roadLength = 100;
 const carLoopLimit = 50;
 let brakeStartX = null;
 let brakingDistance = 0;
-let animationBrakingDistance = 0;
 let targetStopX = null;
+let animationBrakingDistance = 0;
 
 const G = 9.81;
-let roadMesh, crosswalkStripes = [];
+let roadMesh, crosswalkStripes = [], treeGroup;
 
 init();
 animate();
@@ -33,31 +33,31 @@ function init() {
     createRoad();
     createCrosswalk();
     createCar();
+    createTree();
 
-    // Set default road color
     updateRoadColor(document.getElementById('surface').value);
 
-    // Resize
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // Brake Button
     document.getElementById('brakeBtn').addEventListener('click', () => {
         if (!isBraking && speed > 0) {
             isBraking = true;
             brakeStartX = carPositionX;
 
-            // Get parameters
             speedKmh = parseFloat(document.getElementById('speed').value);
             speed = speedKmh / 3.6;
             const tireType = document.getElementById('tireType').value;
             const surface = document.getElementById('surface').value;
 
+            updateRoadColor(surface);
+
             const mu = getFrictionCoefficient(surface, tireType);
             brakingDistance = (speed * speed) / (2 * mu * G);
+
             targetStopX = carPositionX + brakingDistance;
             animationBrakingDistance = brakingDistance;
 
@@ -66,7 +66,6 @@ function init() {
         }
     });
 
-    // Drive Button
     document.getElementById('driveBtn').addEventListener('click', () => {
         if (speed === 0) {
             carPositionX = -carLoopLimit;
@@ -74,10 +73,10 @@ function init() {
             speed = speedKmh / 3.6;
             document.getElementById('brakeDistanceDisplay').style.display = 'none';
             document.getElementById('resultMessage').style.display = 'none';
+            updateRoadColor(document.getElementById('surface').value);
         }
     });
 
-    // Speed Slider
     const speedSlider = document.getElementById('speed');
     const speedValue = document.getElementById('speedValue');
 
@@ -90,12 +89,10 @@ function init() {
         }
     });
 
-    // Road Surface Change (update color dynamically)
-    document.getElementById('surface').addEventListener('change', (e) => {
+    document.getElementById('surface').addEventListener('change', e => {
         updateRoadColor(e.target.value);
     });
 
-    // Formula Panel Toggle
     document.getElementById('formulaHeader').addEventListener('click', () => {
         const content = document.getElementById('formulaContent');
         const header = document.getElementById('formulaHeader');
@@ -126,6 +123,7 @@ function createRoad() {
 
     const lineGeo = new THREE.PlaneGeometry(4, 0.2);
     const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+
     for (let i = -roadLength / 2; i < roadLength / 2; i += 6) {
         const line = new THREE.Mesh(lineGeo, lineMat);
         line.rotation.x = -Math.PI / 2;
@@ -147,6 +145,7 @@ function updateRoadColor(surface) {
 function createCrosswalk() {
     const stripeGeo = new THREE.PlaneGeometry(0.5, 10);
     const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+
     const startX = carLoopLimit - 25;
     for (let i = 0; i < 6; i++) {
         const stripe = new THREE.Mesh(stripeGeo, stripeMat);
@@ -159,15 +158,18 @@ function createCrosswalk() {
 
 function createCar() {
     carGroup = new THREE.Group();
+
     const bodyGeo = new THREE.BoxGeometry(3, 1.5, 4);
     const bodyMat = new THREE.MeshBasicMaterial({ color: 0xffa500 });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.position.set(0, 1.5, 0);
     carGroup.add(body);
+
     carGroup.rotation.y = Math.PI / 2;
 
     const tireGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.3, 32);
     const tireMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
     const tirePositions = [[-1.5, 0.5, 2], [1.5, 0.5, 2], [-1.5, 0.5, -2], [1.5, 0.5, -2]];
     tirePositions.forEach(pos => {
         const tire = new THREE.Mesh(tireGeo, tireMat);
@@ -179,6 +181,25 @@ function createCar() {
 
     carGroup.position.set(carPositionX, 0, 0);
     scene.add(carGroup);
+}
+
+function createTree() {
+    treeGroup = new THREE.Group();
+
+    const trunkGeo = new THREE.BoxGeometry(0.8, 3, 0.8);
+    const trunkMat = new THREE.MeshBasicMaterial({ color: 0x8b4513 });
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.position.set(0, 1.5, 0);
+    treeGroup.add(trunk);
+
+    const leavesGeo = new THREE.BoxGeometry(3, 3, 3);
+    const leavesMat = new THREE.MeshBasicMaterial({ color: 0x228b22 });
+    const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+    leaves.position.set(0, 4.5, 0);
+    treeGroup.add(leaves);
+
+    treeGroup.position.set(carLoopLimit - 55, 0, -6);
+    scene.add(treeGroup);
 }
 
 function animate() {
@@ -196,21 +217,17 @@ function animate() {
             speed = 0;
             isBraking = false;
 
-            const distanceDisplay = document.getElementById('brakeDistanceDisplay');
-            const messageDisplay = document.getElementById('resultMessage');
+            const display = document.getElementById('brakeDistanceDisplay');
+            display.textContent = `Braking Distance: ${brakingDistance.toFixed(2)} m`;
+            display.style.display = 'block';
 
-            distanceDisplay.textContent = `Braking Distance: ${brakingDistance.toFixed(2)} m`;
-            distanceDisplay.style.display = 'block';
-
-            const crosswalkStart = carLoopLimit - 25;
-            if (targetStopX < crosswalkStart) {
-                messageDisplay.textContent = "Perfect braking! Safety first : you kept the crosswalk clear :)";
-                messageDisplay.style.color = "lightgreen";
+            const message = document.getElementById('resultMessage');
+            if (targetStopX < carLoopLimit - 19) {
+                message.textContent = "Perfect braking! Safety first: you kept the crosswalk clear.";
             } else {
-                messageDisplay.textContent = "Too late! Imagine if someone was crossing : Always keep a minimum speed and brake earlier :(";
-                messageDisplay.style.color = "red";
+                message.textContent = "Too late! Imagine if someone was crossing: always brake earlier.";
             }
-            messageDisplay.style.display = 'block';
+            message.style.display = 'block';
         }
     }
 
@@ -219,6 +236,7 @@ function animate() {
     }
 
     carGroup.position.x = carPositionX;
-    tires.forEach(tire => { tire.rotation.x += speed * 0.1; });
+    tires.forEach(tire => tire.rotation.x += speed * 0.1);
+
     renderer.render(scene, camera);
 }
