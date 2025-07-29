@@ -221,13 +221,18 @@ function animate() {
             display.textContent = `Braking Distance: ${brakingDistance.toFixed(2)} m`;
             display.style.display = 'block';
 
-            const message = document.getElementById('resultMessage');
-            if (targetStopX < carLoopLimit - 19) {
-                message.textContent = "Perfect braking! Safety first: you kept the crosswalk clear.";
-            } else {
-                message.textContent = "Too late! Imagine if someone was crossing: always brake earlier.";
-            }
-            message.style.display = 'block';
+        const message = document.getElementById('resultMessage');
+
+if (targetStopX < carLoopLimit - 19) {
+    message.textContent = "Perfect braking! Safety first: you kept the crosswalk clear :)";
+    message.style.color = "#00ff00"; //  Green for success
+} else {
+    message.textContent = "Too late! Imagine if someone was crossing: always brake earlier :( ";
+    message.style.color = "#ff0000"; //  Red for failure
+}
+
+message.style.display = 'block';
+
         }
     }
 
