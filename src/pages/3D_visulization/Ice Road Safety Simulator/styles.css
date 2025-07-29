@@ -1,0 +1,29 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+    background: #111;
+    color: #fff;
+}
+#infoPanel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.7);
+    padding: 15px;
+    border-radius: 10px;
+    width: 250px;
+    font-size: 14px;
+}
+#infoPanel input, #infoPanel select, #infoPanel button {
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 4px;
+}
+#resultText {
+    font-weight: bold;
+    margin-top: 10px;
+}
+canvas {
+    display: block;
+}

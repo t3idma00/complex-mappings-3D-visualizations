@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Road Safety Simulator</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: Arial; }
+        #infoPanel {
+            position: absolute; top: 10px; left: 10px;
+            background: rgba(0,0,0,0.8); color: #fff; padding: 15px;
+            border-radius: 8px; font-size: 14px; width: 260px;
+        }
+        #brakeDistanceDisplay {
+            position: absolute;
+            top: 20px; left: 50%; transform: translateX(-50%);
+            font-size: 24px; font-weight: bold;
+            background: rgba(0, 0, 0, 0.7); color: #fff;
+            padding: 10px 20px; border-radius: 10px; display: none;
+        }
+        #resultMessage {
+            position: absolute;
+            bottom: 30px; left: 50%; transform: translateX(-50%);
+            font-size: 22px; font-weight: bold;
+            text-align: center; padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.7); border-radius: 10px;
+            color: #fff; display: none;
+        }
+        input, select, button {
+            margin-top: 8px; display: block; width: 100%;
+        }
+        #formulaPanel {
+            margin-top: 10px; background: rgba(255,255,255,0.1);
+            padding: 10px; border-radius: 6px;
+        }
+        #formulaHeader { cursor: pointer; font-weight: bold; color: #ffd700; }
+        #formulaContent { display: none; margin-top: 10px; font-size: 13px; line-height: 1.4; }
+        ul { padding-left: 20px; }
+        table {
+            width: 100%; border-collapse: collapse; margin-top: 8px;
+        }
+        th, td {
+            border: 1px solid #fff; padding: 4px;
+            text-align: center; font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="infoPanel">
+        <h2>Road Safety Simulator</h2>
+
+        <div>
+            <label>Speed: <span id="speedValue">60</span> km/h</label>
+            <input type="range" id="speed" min="30" max="120" value="60">
+        </div>
+
+        <div>
+            <label>Tire Type:</label>
+            <select id="tireType">
+                <option value="summer" selected>Summer</option>
+                <option value="winter">Winter</option>
+            </select>
+        </div>
+
+        <div>
+            <label>Road Surface:</label>
+            <select id="surface">
+                <option value="asphalt" selected>Asphalt</option>
+                <option value="snow">Snow</option>
+            </select>
+        </div>
+
+        <button id="brakeBtn">Start Braking</button>
+        <button id="driveBtn">Drive</button>
+
+        <!-- ✅ Collapsible Formula Section -->
+        <div id="formulaPanel">
+            <div id="formulaHeader">▼ Show Physics Formula</div>
+            <div id="formulaContent">
+                <p><b>Step 1:</b> Motion equation: v² = u² + 2as</p>
+                <p><b>Step 2:</b> At stop, v = 0 → 0 = u² + 2as</p>
+                <p><b>Step 3:</b> Solve for s: <b>s = -u² / (2a)</b></p>
+                <p><b>Step 4:</b> Since a = -μg →</p>
+                <p><b>s = u² / (2μg)</b></p>
+                <p><b>Where:</b></p>
+                <ul>
+                    <li>u = initial speed (m/s)</li>
+                    <li>μ = friction coefficient</li>
+                    <li>g = 9.81 m/s²</li>
+                </ul>
+                <p><b>Friction Coefficient Table (μ):</b></p>
+                <table>
+                    <tr><th>Surface</th><th>Summer Tire</th><th>Winter Tire</th></tr>
+                    <tr><td>Snow</td><td>0.20</td><td>0.35</td></tr>
+                    <tr><td>Asphalt</td><td>0.80</td><td>0.90</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ Displays -->
+    <div id="brakeDistanceDisplay">Braking Distance: 0 m</div>
+    <div id="resultMessage"></div>
+
+    <canvas id="scene"></canvas>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.158.0/build/three.module.js"
+      }
+    }
+    </script>
+    <script type="module" src="./main.js"></script>
+</body>
+</html>
