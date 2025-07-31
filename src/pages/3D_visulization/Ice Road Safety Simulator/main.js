@@ -223,13 +223,17 @@ function animate() {
 
         const message = document.getElementById('resultMessage');
 
-if (targetStopX < carLoopLimit - 19) {
+const carLength = 3; // Car length in X-axis
+const crosswalkStartX = carLoopLimit - 25; // Start of crosswalk
+
+if (carPositionX + carLength <= crosswalkStartX) {
     message.textContent = "Perfect braking! Safety first: you kept the crosswalk clear :)";
-    message.style.color = "#00ff00"; //  Green for success
+    message.style.color = "#00ff00"; // Green
 } else {
     message.textContent = "Too late! Imagine if someone was crossing: always brake earlier :( ";
-    message.style.color = "#ff0000"; //  Red for failure
+    message.style.color = "#ff0000"; // Red
 }
+
 
 message.style.display = 'block';
 
