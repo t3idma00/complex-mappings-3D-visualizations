@@ -1,16 +1,60 @@
 body {
-  margin: 0;
-  overflow: hidden;
-  background: #000;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 20px;
+    background-color: #f0f0f0;
+    color: #333;
 }
 
-#info {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  color: white;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 10px;
-  font-family: sans-serif;
-  z-index: 1;
+h1 {
+    color: #0056b3;
+}
+
+#canvas-container {
+    border: 1px solid #ccc;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #e6e6e6;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.controls label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.controls input[type="range"] {
+    width: 150px;
+}
+
+.controls input[type="checkbox"] {
+    margin-left: 10px;
+}
+
+.pressure-high {
+    color: blue;
+    font-weight: bold;
+}
+
+.pressure-low {
+    color: red;
+    font-weight: bold;
+}
+
+p {
+    max-width: 800px;
+    text-align: center;
+    line-height: 1.5;
 }
