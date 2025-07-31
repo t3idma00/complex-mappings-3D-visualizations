@@ -269,7 +269,7 @@ export function updateTaxiFlight(controls) {
         if (launchSpeech && !launchSpeech.isPlaying) launchSpeech.play();
 
         const winText = document.createElement('div');
-        winText.textContent = 'You escaped the Moon Base! You Win!';
+        winText.textContent = 'You are escaping the Moon Base. You Win!';
         winText.style.cssText = 'position:fixed;top:100px;right:20px;font-family:monospace;font-size:24px;color:#00ff88;background:#000a;padding:12px;border-radius:6px;z-index:1000';
         document.body.appendChild(winText);
 

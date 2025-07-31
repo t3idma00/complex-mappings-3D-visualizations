@@ -72,7 +72,7 @@ for (let i = 0; i < 5000; i++) {  // Amount of stars
   // Create a sphere of stars with larger radius
   const radius = 5000;  
   
-  // Better spherical distribution
+  //  spherical distribution
   const theta = Math.random() * Math.PI * 2;
   const phi = Math.acos(2 * Math.random() - 1);
   
