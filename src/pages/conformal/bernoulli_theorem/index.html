@@ -1,14 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Flow Around Cylinder</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dat.gui@0.7.7/build/dat.gui.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fluid Flow Around Cylinder (Bernoulli's Theorem)</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
 </head>
 <body>
-  <div id="info">Flow Around Cylinder<br>Scroll to zoom, drag to pan</div>
-  <script src="main.js"></script>
+    <h1>Fluid Flow Around a Cylinder</h1>
+    <div id="canvas-container"></div>
+    <div class="controls">
+        <label for="flowSpeed">Free Stream Speed (U):</label>
+        <input type="range" id="flowSpeed" min="0.1" max="5" step="0.1" value="1.0">
+        <span id="flowSpeedValue">1.0</span>
+
+        <label for="cylinderRadius">Cylinder Radius (R):</label>
+        <input type="range" id="cylinderRadius" min="10" max="100" step="1" value="50">
+        <span id="cylinderRadiusValue">50</span>
+
+        <label for="numParticles">Number of Particles:</label>
+        <input type="range" id="numParticles" min="100" max="2000" step="50" value="500">
+        <span id="numParticlesValue">500</span>
+
+        <label for="particleSpeedMultiplier">Particle Speed Multiplier:</label>
+        <input type="range" id="particleSpeedMultiplier" min="0.1" max="5" step="0.1" value="1.0">
+        <span id="particleSpeedMultiplierValue">1.0</span>
+
+        <label for="showPressure">Show Pressure (Bernoulli):</label>
+        <input type="checkbox" id="showPressure" checked>
+    </div>
+    <p>
+        This simulation visualizes incompressible, inviscid fluid flow around a cylinder using moving particles.
+        <br>
+        Pressure is visualized by color: <span class="pressure-high">Blue = High Pressure (Low Speed)</span>,
+        <span class="pressure-low">Red = Low Pressure (High Speed)</span>.
+        (Based on Bernoulli's Theorem: $P + \frac{1}{2}\rho v^2 = \text{constant}$).
+    </p>
+    <script src="main.js"></script>
 </body>
 </html>

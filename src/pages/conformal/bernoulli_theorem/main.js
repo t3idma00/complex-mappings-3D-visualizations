@@ -1,173 +1,232 @@
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x101010);
-const camera = new THREE.OrthographicCamera(
-  window.innerWidth / -100,
-  window.innerWidth / 100,
-  window.innerHeight / 100,
-  window.innerHeight / -100,
-  0.1,
-  1000
-);
-camera.position.z = 5;
+let sketch = function(p) {
+    let U_freeStream = 1.0; 
+    let R_cylinder = 50;   
+    let numParticles = 500; 
+    let particleSpeedMultiplier = 1.0; 
+    let showPressure = true;
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+    const pressureResolution = 2; 
+    const particleSpawnRate = 5; 
 
-const params = {
-  flowSpeed: 1.0,
-  particleSpeed: 0.5,
-  showCylinder: true,
-  streamlineColor: '#3366ff',
-  particleColor: '#ffff00'
+    let particles = [];
+    let particleSpawnCounter = 0;
+
+    let flowSpeedSlider;
+    let cylinderRadiusSlider;
+    let numParticlesSlider;
+    let particleSpeedMultiplierSlider;
+    let showPressureCheckbox;
+    let flowSpeedValueSpan;
+    let cylinderRadiusValueSpan;
+    let numParticlesValueSpan;
+    let particleSpeedMultiplierValueSpan;
+
+    // Particle Class Definition
+    class Particle {
+        constructor(x, y) {
+            this.pos = p.createVector(x, y);
+            this.lifespan = 255; 
+            this.trail = []; 
+            this.trailLength = 10; 
+        }
+
+        update() {
+            let z_comp = this.pos.copy(); 
+            let distToCenter = p.dist(0, 0, this.pos.x, this.pos.y);
+
+            
+            if (distToCenter < R_cylinder + 1 || this.pos.x > p.width / 2 + 50 || this.pos.x < -p.width / 2 - 50 ||
+                this.pos.y > p.height / 2 + 50 || this.pos.y < -p.height / 2 - 50) {
+                this.reset();
+                return;
+            }
+
+            let w = complexVelocity(z_comp); 
+            let u = w.x;   
+            let v = -w.y;  
+
+            
+            this.trail.push(this.pos.copy());
+            if (this.trail.length > this.trailLength) {
+                this.trail.shift();
+            }
+
+            
+            this.pos.x += u * particleSpeedMultiplier;
+            this.pos.y += v * particleSpeedMultiplier;
+
+            this.lifespan -= 1; 
+        }
+
+        display() {
+            p.noStroke();
+            p.fill(0, 150, 255, 200); 
+
+            // Draw particle dot
+            p.ellipse(this.pos.x, this.pos.y, 3, 3); 
+
+            // Draw trail
+            p.stroke(0, 150, 255, 100); 
+            p.strokeWeight(1);
+            p.noFill();
+            p.beginShape();
+            for (let i = 0; i < this.trail.length; i++) {
+                let alpha = p.map(i, 0, this.trail.length - 1, 0, 100); 
+                p.stroke(0, 150, 255, alpha);
+                p.vertex(this.trail[i].x, this.trail[i].y);
+            }
+            p.endShape();
+        }
+
+        reset() {
+            
+            let startYOffset = p.height * 0.4; 
+            this.pos = p.createVector(-p.width / 2 - 50, p.random(-startYOffset, startYOffset));
+            this.lifespan = 255; 
+            this.trail = []; 
+        }
+    }
+
+    p.setup = function() {
+        let canvas = p.createCanvas(800, 400);
+        canvas.parent('canvas-container');
+        p.pixelDensity(1);
+
+        flowSpeedSlider = p.select('#flowSpeed');
+        cylinderRadiusSlider = p.select('#cylinderRadius');
+        numParticlesSlider = p.select('#numParticles');
+        particleSpeedMultiplierSlider = p.select('#particleSpeedMultiplier');
+        showPressureCheckbox = p.select('#showPressure');
+
+        flowSpeedValueSpan = p.select('#flowSpeedValue');
+        cylinderRadiusValueSpan = p.select('#cylinderRadiusValue');
+        numParticlesValueSpan = p.select('#numParticlesValue');
+        particleSpeedMultiplierValueSpan = p.select('#particleSpeedMultiplierValue');
+
+        U_freeStream = parseFloat(flowSpeedSlider.value());
+        R_cylinder = parseFloat(cylinderRadiusSlider.value());
+        numParticles = parseInt(numParticlesSlider.value());
+        particleSpeedMultiplier = parseFloat(particleSpeedMultiplierSlider.value());
+        showPressure = showPressureCheckbox.checked();
+
+        flowSpeedValueSpan.html(U_freeStream.toFixed(1));
+        cylinderRadiusValueSpan.html(R_cylinder);
+        numParticlesValueSpan.html(numParticles);
+        particleSpeedMultiplierValueSpan.html(particleSpeedMultiplier.toFixed(1));
+
+        flowSpeedSlider.input(() => {
+            U_freeStream = parseFloat(flowSpeedSlider.value());
+            flowSpeedValueSpan.html(U_freeStream.toFixed(1));
+        });
+        cylinderRadiusSlider.input(() => {
+            R_cylinder = parseFloat(cylinderRadiusSlider.value());
+            cylinderRadiusValueSpan.html(R_cylinder);
+        });
+        numParticlesSlider.input(() => {
+            numParticles = parseInt(numParticlesSlider.value());
+            numParticlesValueSpan.html(numParticles);
+        });
+        particleSpeedMultiplierSlider.input(() => {
+            particleSpeedMultiplier = parseFloat(particleSpeedMultiplierSlider.value());
+            particleSpeedMultiplierValueSpan.html(particleSpeedMultiplier.toFixed(1));
+        });
+        showPressureCheckbox.changed(() => {
+            showPressure = showPressureCheckbox.checked();
+        });
+
+        // Initialize particles
+        for (let i = 0; i < numParticles; i++) {
+            let startYOffset = p.height * 0.4; 
+            particles.push(new Particle(-p.width / 2 - p.random(0, 100), p.random(-startYOffset, startYOffset)));
+        }
+    };
+
+    p.draw = function() {
+        p.background(255);
+        p.translate(p.width / 2, p.height / 2); 
+
+        if (showPressure) {
+            drawPressureVisualization();
+        }
+
+        p.noFill();
+        p.stroke(0);
+        p.strokeWeight(2);
+        p.ellipse(0, 0, R_cylinder * 2, R_cylinder * 2); 
+
+        drawParticles();
+    };
+
+    function complexVelocity(z_comp) {
+        let z = p.createVector(z_comp.x, z_comp.y);
+        let z_magSq = z.magSq();
+
+        let w_real = U_freeStream;
+        let w_imag = 0;
+
+        if (z_magSq < 0.001) { 
+             return p.createVector(0,0);
+        }
+
+        let R_squared_U = R_cylinder * R_cylinder * U_freeStream;
+        let z_squared_real = z.x * z.x - z.y * z.y;
+        let z_squared_imag = 2 * z.x * z.y;
+
+        let denom = z_squared_real * z_squared_real + z_squared_imag * z_squared_imag;
+        let term2_real = (R_squared_U * z_squared_real) / denom;
+        let term2_imag = (-R_squared_U * z_squared_imag) / denom;
+
+        w_real -= term2_real;
+        w_imag -= term2_imag;
+
+        return p.createVector(w_real, w_imag);
+    }
+
+    function drawParticles() {
+        // Update and display particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update();
+            particles[i].display();
+        }
+
+        particleSpawnCounter++;
+        if (particleSpawnCounter >= particleSpawnRate && particles.length < numParticles) {
+            let startYOffset = p.height * 0.4; 
+            particles.push(new Particle(-p.width / 2 - 50, p.random(-startYOffset, startYOffset)));
+            particleSpawnCounter = 0;
+        }
+
+        particles = particles.filter(p => p.lifespan > 0);
+        while(particles.length < numParticles) {
+            let startYOffset = p.height * 0.4;
+            particles.push(new Particle(-p.width / 2 - 50, p.random(-startYOffset, startYOffset)));
+        }
+    }
+
+    function drawPressureVisualization() {
+        const resolution = pressureResolution;
+        const maxSpeedColor = 2.0 * U_freeStream;
+        p.noStroke();
+
+        for (let x = -p.width / 2; x < p.width / 2; x += resolution) {
+            for (let y = -p.height / 2; y < p.height / 2; y += resolution) {
+                let dist = p.dist(0, 0, x, y);
+                if (dist > R_cylinder) {
+                    let z_comp = p.createVector(x, y);
+                    let w = complexVelocity(z_comp);
+                    let speed = p.sqrt(w.x * w.x + w.y * w.y);
+
+                    let speedNormalized = p.constrain(speed / maxSpeedColor, 0, 1);
+
+                    let blue = p.map(speedNormalized, 0, 1, 255, 0);
+                    let red = p.map(speedNormalized, 0, 1, 0, 255);
+
+                    p.fill(red, 0, blue, 100);
+                    p.rect(x, y, resolution, resolution);
+                }
+            }
+        }
+    }
 };
 
-const cylinder = new THREE.Mesh(
-  new THREE.CircleGeometry(1, 64),
-  new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.DoubleSide })
-);
-if (params.showCylinder) scene.add(cylinder);
-
-function getVelocity(x, y) {
-  const r2 = x * x + y * y;
-  const a2 = 1 * 1;
-  const U = params.flowSpeed;
-  if (r2 > a2 * 0.99) {
-    const vx = U * (1 + a2 * (y * y - x * x) / (r2 * r2));
-    const vy = U * (-2 * a2 * x * y) / (r2 * r2);
-    return new THREE.Vector2(vx, vy);
-  }
-  return new THREE.Vector2(0, 0);
-}
-
-let streamlinePaths = [];
-let particles = [];
-
-function generateStreamlines() {
-  scene.children = scene.children.filter(obj => obj.userData?.isParticle || obj === cylinder);
-  streamlinePaths = [];
-  const yValues = [-1.5, -1.0, -0.5, 0.5, 1.0, 1.5];
-
-  yValues.forEach(y => {
-    let x = -4, yy = y;
-    const path = [];
-
-    for (let i = 0; i < 300; i++) {
-      const v = getVelocity(x, yy);
-      const norm = v.length();
-      v.normalize().multiplyScalar(0.03);
-      x += v.x;
-      yy += v.y;
-      path.push(new THREE.Vector3(x, yy, 0));
-      if (x > 4 || norm < 0.001) break;
-    }
-
-    if (path.length > 10) {
-      const geometry = new THREE.BufferGeometry().setFromPoints(path);
-      const material = new THREE.LineBasicMaterial({
-        color: new THREE.Color(params.streamlineColor),
-        transparent: true,
-        opacity: 0.3
-      });
-      scene.add(new THREE.Line(geometry, material));
-      streamlinePaths.push(path);
-    }
-  });
-}
-
-function createParticles() {
-  particles.forEach(p => scene.remove(p.mesh));
-  particles = [];
-
-  streamlinePaths.forEach(path => {
-    for (let i = 0; i < 10; i++) {
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.04, 8, 8),
-        new THREE.MeshBasicMaterial({
-          color: new THREE.Color(params.particleColor),
-          transparent: true,
-          opacity: 0.8
-        })
-      );
-      mesh.userData.isParticle = true;
-      scene.add(mesh);
-      particles.push({ mesh, path, progress: i / 10 });
-    }
-  });
-}
-
-function updateParticles(delta) {
-  particles.forEach(p => {
-    p.progress += delta * params.particleSpeed / p.path.length;
-    if (p.progress > 1) p.progress -= 1;
-
-    const index = Math.floor(p.progress * (p.path.length - 1));
-    const nextIndex = Math.min(index + 1, p.path.length - 1);
-    const lerpT = (p.progress * (p.path.length - 1)) % 1;
-
-    const a = p.path[index];
-    const b = p.path[nextIndex];
-    p.mesh.position.lerpVectors(a, b, lerpT);
-  });
-}
-
-function refresh() {
-  if (params.showCylinder) {
-    scene.add(cylinder);
-  } else {
-    scene.remove(cylinder);
-  }
-  generateStreamlines();
-  createParticles();
-}
-
-// GUI
-const gui = new dat.GUI();
-gui.add(params, 'flowSpeed', 0.2, 2).step(0.1).onChange(refresh);
-gui.add(params, 'particleSpeed', 0.1, 2).step(0.1);
-gui.add(params, 'showCylinder').onChange(refresh);
-gui.addColor(params, 'streamlineColor').onChange(refresh);
-gui.addColor(params, 'particleColor').onChange(refresh);
-
-// Resize
-window.addEventListener('resize', () => {
-  camera.left = window.innerWidth / -100;
-  camera.right = window.innerWidth / 100;
-  camera.top = window.innerHeight / 100;
-  camera.bottom = window.innerHeight / -100;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// Pan & zoom
-let dragging = false;
-let prevMouse = { x: 0, y: 0 };
-
-window.addEventListener('mousedown', e => {
-  dragging = true;
-  prevMouse = { x: e.clientX, y: e.clientY };
-});
-window.addEventListener('mouseup', () => dragging = false);
-window.addEventListener('mousemove', e => {
-  if (dragging) {
-    const dx = (e.clientX - prevMouse.x) / 100;
-    const dy = (e.clientY - prevMouse.y) / 100;
-    camera.position.x -= dx;
-    camera.position.y += dy;
-    prevMouse = { x: e.clientX, y: e.clientY };
-  }
-});
-window.addEventListener('wheel', e => {
-  camera.zoom *= e.deltaY > 0 ? 1.1 : 0.9;
-  camera.updateProjectionMatrix();
-});
-
-refresh();
-
-const clock = new THREE.Clock();
-function animate() {
-  requestAnimationFrame(animate);
-  updateParticles(clock.getDelta());
-  renderer.render(scene, camera);
-}
-animate();
+new p5(sketch);
