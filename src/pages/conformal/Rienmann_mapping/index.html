@@ -1,74 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Riemann Mapping Visualization</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/mathjs@11.3.1/lib/browser/math.js"></script>
-    <script src="main.js" defer></script>
-    
+  <meta charset="UTF-8" />
+  <title>Conformal Mapping: Image to Disk</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/svg.js/3.0.16/svg.min.js"></script>
+
+    <link rel="stylesheet" href="styles.css" />
+
+  
 </head>
 <body>
-    <h1>Riemann Mapping Visualization</h1>
-    
-    <div class="container">
-        <div class="canvas-container">
-            <h2>Original Grid</h2>
-            <canvas id="originalCanvas" width="400" height="400"></canvas>
-        </div>
-        
-        <div class="canvas-container">
-            <h2>Transformed Grid</h2>
-            <canvas id="mappedCanvas" width="400" height="400"></canvas>
-            <div class="legend">
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #4285f4;"></div>
-                    <span>Transformed Grid</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #9b59b6;"></div>
-                    <span>Selected Point</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="controls">
-            <h3>Controls</h3>
-            
-            <div class="control-group">
-                <label for="realPart">Real Part of ζ (Target Point)</label>
-                <input type="range" id="realPart" min="-3" max="3" step="0.1" value="2">
-                <div class="value-display" id="realValue">2.0</div>
-            </div>
-            
-            <div class="control-group">
-                <label for="imagPart">Imaginary Part of ζ (Target Point)</label>
-                <input type="range" id="imagPart" min="-3" max="3" step="0.1" value="2">
-                <div class="value-display" id="imagValue">2.0</div>
-            </div>
-            
-            <div class="control-group">
-                <label for="gridSize">Grid Resolution</label>
-                <input type="range" id="gridSize" min="5" max="50" step="1" value="20">
-                <div class="value-display" id="gridSizeValue">20</div>
-            </div>
-            
-            <div class="control-group">
-                <label for="animationSpeed">Animation Speed</label>
-                <input type="range" id="animationSpeed" min="0" max="100" step="1" value="50">
-                <div class="value-display" id="speedValue">50</div>
-            </div>
-            
-            <button id="animateBtn">Animate Transformation</button>
-        </div>
-    </div>
-    
-    <div class="info">
-        <h2>About Riemann Mapping</h2>
+  <div class="controls">
+    <h2>Image to Disk Conformal Mapping</h2>
+    <input type="file" id="imageUpload" accept="image/*">
+    <p class="caption">Upload an image to map it to the unit disk</p>
+  </div>
 
+  <div class="container">
+    <div>
+      <h3>Original Image</h3>
+      <p class="caption">Will be scaled to fit [-1,1] × [-1,1] square</p>
+      <svg id="square" width="400" height="400"></svg>
     </div>
+    <div>
+      <h3>Mapped to Disk</h3>
+      <p class="caption">Conformal mapping result</p>
+      <svg id="disk" width="400" height="400"></svg>
+    </div>
+  </div>  
+    <script src="main.js"></script>
 
-    
 </body>
 </html>
