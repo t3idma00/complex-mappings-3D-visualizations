@@ -67,9 +67,9 @@ const starGeometry = new THREE.BufferGeometry();
 const starPositions = [], starColors = [], starSizes = [];
 const color = new THREE.Color();
 
-// Create a much denser star field
+//  denser star field
 for (let i = 0; i < 5000; i++) {  // Amount of stars
-  // Create a sphere of stars with larger radius
+  // sphere of stars with larger radius
   const radius = 5000;  
   
   //  spherical distribution
@@ -82,7 +82,7 @@ for (let i = 0; i < 5000; i++) {  // Amount of stars
     radius * Math.cos(phi)
   );
   
-  // More visible color variation
+  // color variation
   const hue = Math.random() * 0.2;  // Increased color variation range
   const saturation = Math.random() * 0.3;
   const lightness = 0.8 + Math.random() * 0.2;  // Brighter stars
@@ -104,7 +104,7 @@ const starMaterial = new THREE.PointsMaterial({
   transparent: true,
   opacity: 1,
   fog: false,
-  depthWrite: false  // Important for rendering order
+  depthWrite: false 
 });
 
 const starField = new THREE.Points(starGeometry, starMaterial);

@@ -7,7 +7,7 @@ export function spawnWave(waveNumber, scene, controls, enemies, enemyBullets, ai
   for (let i = 0; i < waveNumber; i++) {
     let x, z, dist;
 
-    // Keep generating random positions until they are far enough from player
+    // generating random positions 
     do {
       x = (Math.random() - 0.5) * spawnRange;
       z = (Math.random() - 0.5) * spawnRange - 100;
@@ -33,5 +33,5 @@ document.addEventListener('DOMContentLoaded', () => {
 new THREE.AudioLoader().load('./assets/sounds/Enemygun_sound.mp3', buffer => {
   enemyShootSound = new THREE.Audio(listener);
   enemyShootSound.setBuffer(buffer);
-  enemyShootSound.setVolume(1.2); // adjust volume as needed
+  enemyShootSound.setVolume(1.2); // volume 
 });

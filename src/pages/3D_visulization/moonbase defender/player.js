@@ -288,7 +288,7 @@ export function updateTaxiFlight(controls) {
           cameraObj.position.lerp(targetPos, 0.03);
           window.flightTimer = 0;
 
-          // Start spaceship hum
+          // Start spaceship sound
           if (spaceshipHum && !spaceshipHum.isPlaying) spaceshipHum.play();
         }
       }
@@ -302,7 +302,7 @@ export function updateTaxiFlight(controls) {
           window.taxi.position.y += 0.05;
           window.taxi.position.z -= 0.5;
 
-          // 🎵 Play final music
+          // Play final music
           if (finalMusic && !finalMusic.isPlaying) finalMusic.play();
         }
 
@@ -339,7 +339,7 @@ export function updateGunAnimation(delta) {
   const offsetY = Math.cos(bobTime * 2) * amplitude;
 
   // Recoil kick logic
-  shootKick *= 0.9; // decay
+  shootKick *= 0.9; 
   const recoilZ = -shootKick;
 
   // Apply to visible gun

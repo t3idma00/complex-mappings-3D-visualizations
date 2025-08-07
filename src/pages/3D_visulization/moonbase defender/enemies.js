@@ -9,7 +9,7 @@ const enemySoundLoader = new THREE.AudioLoader();
 let enemy1SoundBuffer = null;
 let enemyGunSoundBuffer = null;
 
-// Load idle ambient sound for enemy
+// Load  sound for enemy
 enemySoundLoader.load('./assets/sounds/enemy1_sound.mp3', buffer => {
   enemy1SoundBuffer = buffer;
 });
@@ -42,7 +42,7 @@ export function spawnEnemy(scene, controls, enemies, enemyBullets, modelPath, x,
       idleSound.setBuffer(enemy1SoundBuffer);
       idleSound.setRefDistance(15);
       idleSound.setLoop(true);
-      idleSound.setVolume(0.6); // ✅ softer idle hum
+      idleSound.setVolume(0.6); 
       enemy.add(idleSound);
       idleSound.play();
       enemy.userData.idleSound = idleSound;
