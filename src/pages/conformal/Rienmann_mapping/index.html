@@ -1,36 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Conformal Mapping: Image to Disk</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/svg.js/3.0.16/svg.min.js"></script>
-
-    <link rel="stylesheet" href="styles.css" />
-
-  
+  <meta charset="UTF-8">
+  <title>Bergman Mapping with Image Upload</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <script src="main.js" type="module"></script>
 </head>
 <body>
-  <div class="controls">
-    <h2>Image to Disk Conformal Mapping</h2>
-    <input type="file" id="imageUpload" accept="image/*">
-    <p class="caption">Upload an image to map it to the unit disk</p>
-  </div>
-
-  <div class="container">
-    <div>
-      <h3>Original Image</h3>
-      <p class="caption">Will be scaled to fit [-1,1] × [-1,1] square</p>
-      <svg id="square" width="400" height="400"></svg>
-    </div>
-    <div>
-      <h3>Mapped to Disk</h3>
-      <p class="caption">Conformal mapping result</p>
-      <svg id="disk" width="400" height="400"></svg>
-    </div>
-  </div>  
-    <script src="main.js"></script>
+  <input type="file" id="imgUpload" accept="image/*">
 
 </body>
 </html>

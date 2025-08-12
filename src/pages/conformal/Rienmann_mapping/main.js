@@ -1,206 +1,164 @@
 
-    const size = 400;
-    const margin = 0.05;
-    const scale = 1 - margin;
-    const colorH = "#0077cc", colorV = "#cc3300";
-    let maxRadius = 0;
-    let imageData = null;
 
-    // Initialize with conformal grid
-    drawInitialConformalCells();
+  // Complex Number Utilities
+  function Complex(re, im=0) {
+    this.re = re;
+    this.im = im;
+  }
+  Complex.prototype.add = function(c){ return new Complex(this.re + c.re, this.im + c.im); }
+  Complex.prototype.sub = function(c){ return new Complex(this.re - c.re, this.im - c.im); }
+  Complex.prototype.mul = function(c){ 
+    return new Complex(this.re*c.re - this.im*c.im, this.re*c.im + this.im*c.re); 
+  }
+  Complex.prototype.scale = function(s){ return new Complex(this.re*s, this.im*s); }
+  Complex.prototype.conj = function(){ return new Complex(this.re, -this.im); }
+  Complex.prototype.abs = function(){ return Math.sqrt(this.re*this.re + this.im*this.im); }
+  Complex.prototype.pow = function(n){
+    let r = new Complex(1,0);
+    for(let i=0; i<n; i++) r = r.mul(this);
+    return r;
+  }
 
-    function conformalMapApprox(x, y) {
-      const z = math.complex(x, y);
-      const z5 = math.pow(z, 5);
-      const z9 = math.pow(z, 9);
-      const result = math.add(math.add(z, math.multiply(0.0731647, z5)), math.multiply(0.00358709, z9));
-      return { x: result.re, y: result.im };
-    }
+  // Problem Parameters
+  const degree = 6;     
+  const gridRes = 30;   
+  const center = new Complex(0,0);  
 
-    function toSvgCoords(x, y, size, normalize = 1) {
-      return {
-        x: size / 2 + x * size / 2 * scale / normalize,
-        y: size / 2 - y * size / 2 * scale / normalize
-      };
-    }
-
-    function generatePath(points) {
-      let path = "";
-      for (let i = 0; i < points.length; i++) {
-        const svgCoords = toSvgCoords(points[i].x, points[i].y, size, maxRadius);
-        if (i === 0) {
-          path += `M ${svgCoords.x} ${svgCoords.y}`;
-        } else {
-          path += ` L ${svgCoords.x} ${svgCoords.y}`;
-        }
-      }
-      return path;
-    }
-
-    // ✅ Draw square grid cells and their conformal mapped versions
-    function drawInitialConformalCells() {
-      const squareSvg = d3.select("#square");
-      const diskSvg = d3.select("#disk");
-
-      squareSvg.selectAll("*").remove();
-      diskSvg.selectAll("*").remove();
-
-      const squareGroup = squareSvg.append("g");
-      const diskGroup = diskSvg.append("g");
-
-      const cellCount = 20;
-      const step = 2 / cellCount;
-
-      // Compute max radius for normalization
-      maxRadius = 0;
-      for (let i = 0; i <= cellCount; i++) {
-        for (let j = 0; j <= cellCount; j++) {
-          const x = -1 + i * step;
-          const y = -1 + j * step;
-          const mapped = conformalMapApprox(x, y);
-          const r = Math.sqrt(mapped.x * mapped.x + mapped.y * mapped.y);
-          if (r > maxRadius) maxRadius = r;
-        }
-      }
-
-      for (let i = 0; i < cellCount; i++) {
-        for (let j = 0; j < cellCount; j++) {
-          const x0 = -1 + i * step;
-          const y0 = -1 + j * step;
-          const x1 = x0 + step;
-          const y1 = y0 + step;
-
-          const corners = [
-            { x: x0, y: y0 },
-            { x: x1, y: y0 },
-            { x: x1, y: y1 },
-            { x: x0, y: y1 }
-          ];
-
-          const squarePath = corners.map(p => toSvgCoords(p.x, p.y, size))
-            .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
-            .join(" ") + " Z";
-
-          squareGroup.append("path")
-            .attr("d", squarePath)
-            .attr("fill", "none")
-            .attr("stroke", "#999")
-            .attr("stroke-width", 0.5);
-
-          const mappedCorners = corners.map(p => conformalMapApprox(p.x, p.y));
-          const diskPath = mappedCorners.map(p => toSvgCoords(p.x, p.y, size, maxRadius))
-            .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
-            .join(" ") + " Z";
-
-          diskGroup.append("path")
-            .attr("d", diskPath)
-            .attr("fill", "none")
-            .attr("stroke", "#999")
-            .attr("stroke-width", 0.5);
-        }
+  function integrateSquare(f) {
+    let sum = new Complex(0,0);
+    let dx = 2/gridRes;
+    let dy = 2/gridRes;
+    for(let i=0; i<gridRes; i++){
+      for(let j=0; j<gridRes; j++){
+        let x = -1 + dx*(i+0.5);
+        let y = -1 + dy*(j+0.5);
+        let val = f(new Complex(x,y));
+        sum = sum.add(val.scale(dx*dy));
       }
     }
+    return sum;
+  }
 
-    // Image upload handler
-    document.getElementById('imageUpload').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
+  // Bergman Space Setup
+  function monomial(z, n){ return z.pow(n); }
+  function innerProduct(f,g){
+    return integrateSquare(z => f(z).mul(g(z).conj()));
+  }
 
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const img = new Image();
-        img.src = event.target.result;
+  // Gram–Schmidt orthonormalization
+  function gramSchmidt(){
+    let basis = [];
+    for(let n=0; n<degree; n++){
+      basis.push(z => monomial(z,n));
+    }
+    let ortho = [];
+    for(let i=0; i<degree; i++){
+      let f = basis[i];
+      let proj = z => new Complex(0,0);
+      for(let j=0; j<i; j++){
+        let c = innerProduct(f, ortho[j]);
+        proj = ((old) => (z => old(z).add(ortho[j](z).scale(c.re))))(proj);
+      }
+      let g = z => f(z).sub(proj(z));
+      let norm = Math.sqrt(innerProduct(g,g).re);
+      if(norm > 1e-14) ortho.push(z => g(z).scale(1/norm));
+      else ortho.push(z => new Complex(0,0));
+    }
+    return ortho;
+  }
 
-        img.onload = function() {
-          processImage(img);
-        };
-      };
+  // Bergman Kernel
+  function bergmanKernel(z,w,ortho){
+    let sum = new Complex(0,0);
+    for(let p of ortho){
+      sum = sum.add(p(z).mul(p(w).conj()));
+    }
+    return sum;
+  }
+
+  function mapDerivative(z, ortho){
+    let norm = bergmanKernel(center, center, ortho).re;
+    return bergmanKernel(z, center, ortho).scale(1/norm);
+  }
+  function integrateMap(z, ortho, steps=20){
+    let dz = new Complex((z.re - center.re)/steps, (z.im - center.im)/steps);
+    let sum = new Complex(0,0);
+    for(let k=0; k<=steps; k++){
+      let t = new Complex(center.re + dz.re*k, center.im + dz.im*k);
+      let w = mapDerivative(t, ortho);
+      let weight = (k === 0 || k === steps) ? 0.5 : 1;
+      sum = sum.add(w.scale(weight));
+    }
+    return sum.mul(dz);
+  }
+
+  // Visualization variables
+  let squarePoints = [];
+  let mappedPoints = [];
+  let orthoBasis;
+  let uploadedImg = null;
+
+  function setup(){
+    createCanvas(900, 480);
+    orthoBasis = gramSchmidt();
+
+    for(let i=0; i<gridRes; i++){
+      for(let j=0; j<gridRes; j++){
+        let x = -1 + 2*(i+0.5)/gridRes;
+        let y = -1 + 2*(j+0.5)/gridRes;
+        squarePoints.push(new Complex(x,y));
+      }
+    }
+    // Mapped points to the disk
+    mappedPoints = squarePoints.map(p => integrateMap(p, orthoBasis));
+
+    noLoop();
+  }
+
+  function draw(){
+    background(255);
+
+    // Square domain
+    push();
+    translate(width*0.25, height/2);
+    noFill();
+    stroke(0);
+    rectMode(CENTER);
+    rect(0,0,300,300);
+    fill(0);
+    noStroke();
+    for(let p of squarePoints){
+      ellipse(p.re*150, -p.im*150, 3,3);
+    }
+    pop();
+
+    // Mapped points
+    push();
+    translate(width*0.75, height/2);
+    noFill();
+    stroke(0);
+    ellipse(0,0,300,300); 
+    noStroke();
+    fill('red');
+    for(let p of mappedPoints){
+      ellipse(p.re*150, -p.im*150, 3,3);
+    }
+    
+    if(uploadedImg){
+      imageMode(CENTER);
+      image(uploadedImg, 0, 0, 300, 300);
+    }
+    pop();
+  }
+
+  // Handle image upload
+  document.getElementById('imgUpload').addEventListener('change', function(e){
+    let file = e.target.files[0];
+    if(file){
+      let reader = new FileReader();
+      reader.onload = function(evt){
+        uploadedImg = loadImage(evt.target.result, () => redraw());
+      }
       reader.readAsDataURL(file);
-    });
-
-    function processImage(img) {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const imgSize = Math.min(img.width, img.height);
-      canvas.width = imgSize;
-      canvas.height = imgSize;
-
-      ctx.drawImage(img,
-        (img.width - imgSize) / 2,
-        (img.height - imgSize) / 2,
-        imgSize, imgSize,
-        0, 0, imgSize, imgSize);
-
-      imageData = ctx.getImageData(0, 0, imgSize, imgSize);
-
-      drawOriginalImage();
-      drawMappedImage();
     }
-
-    function drawOriginalImage() {
-      const squareSvg = d3.select("#square");
-      squareSvg.selectAll("*").remove();
-
-      const imgSize = imageData.width;
-      const sampleDensity = 2;
-      const group = squareSvg.append("g");
-
-      for (let y = 0; y < imgSize; y += sampleDensity) {
-        for (let x = 0; x < imgSize; x += sampleDensity) {
-          const u = -1 + 2 * x / imgSize;
-          const v = 1 - 2 * y / imgSize;
-
-          const pixelIndex = (y * imgSize + x) * 4;
-          const r = imageData.data[pixelIndex];
-          const g = imageData.data[pixelIndex + 1];
-          const b = imageData.data[pixelIndex + 2];
-          const a = imageData.data[pixelIndex + 3] / 255;
-
-          const svgCoords = toSvgCoords(u, v, size);
-
-          group.append("rect")
-            .attr("x", svgCoords.x - sampleDensity / 2)
-            .attr("y", svgCoords.y - sampleDensity / 2)
-            .attr("width", sampleDensity)
-            .attr("height", sampleDensity)
-            .attr("fill", `rgba(${r},${g},${b},${a})`)
-            .attr("stroke", "none");
-        }
-      }
-    }
-
-    function drawMappedImage() {
-      if (!imageData) return;
-
-      const svg = d3.select("#disk");
-      svg.selectAll("*").remove();
-
-      const imgSize = imageData.width;
-      const sampleDensity = 2;
-      const group = svg.append("g");
-
-      for (let y = 0; y < imgSize; y += sampleDensity) {
-        for (let x = 0; x < imgSize; x += sampleDensity) {
-          const u = -1 + 2 * x / imgSize;
-          const v = 1 - 2 * y / imgSize;
-
-          const mapped = conformalMapApprox(u, v);
-
-          const pixelIndex = (y * imgSize + x) * 4;
-          const r = imageData.data[pixelIndex];
-          const g = imageData.data[pixelIndex + 1];
-          const b = imageData.data[pixelIndex + 2];
-          const a = imageData.data[pixelIndex + 3] / 255;
-
-          const svgCoords = toSvgCoords(mapped.x, mapped.y, size, maxRadius);
-
-          group.append("rect")
-            .attr("x", svgCoords.x - sampleDensity / 2)
-            .attr("y", svgCoords.y - sampleDensity / 2)
-            .attr("width", sampleDensity)
-            .attr("height", sampleDensity)
-            .attr("fill", `rgba(${r},${g},${b},${a})`)
-            .attr("stroke", "none");
-        }
-      }
-    }
+  });
