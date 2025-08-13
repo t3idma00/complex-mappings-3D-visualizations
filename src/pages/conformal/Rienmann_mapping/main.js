@@ -14,8 +14,8 @@
   }
 
   // Problem Parameters
-  const degree =8;     
-  const gridRes = 50;   
+  const degree =10;     
+  const gridRes = 120;   
   const center = new Complex(0,0);  
 
   function integrateSquare(f) {
