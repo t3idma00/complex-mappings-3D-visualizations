@@ -1,15 +1,9 @@
 
-
   // Complex Number Utilities
-  function Complex(re, im=0) {
-    this.re = re;
-    this.im = im;
-  }
+  function Complex(re, im=0) { this.re = re; this.im = im; }
   Complex.prototype.add = function(c){ return new Complex(this.re + c.re, this.im + c.im); }
   Complex.prototype.sub = function(c){ return new Complex(this.re - c.re, this.im - c.im); }
-  Complex.prototype.mul = function(c){ 
-    return new Complex(this.re*c.re - this.im*c.im, this.re*c.im + this.im*c.re); 
-  }
+  Complex.prototype.mul = function(c){ return new Complex(this.re*c.re - this.im*c.im, this.re*c.im + this.im*c.re); }
   Complex.prototype.scale = function(s){ return new Complex(this.re*s, this.im*s); }
   Complex.prototype.conj = function(){ return new Complex(this.re, -this.im); }
   Complex.prototype.abs = function(){ return Math.sqrt(this.re*this.re + this.im*this.im); }
@@ -20,8 +14,8 @@
   }
 
   // Problem Parameters
-  const degree = 6;     
-  const gridRes = 30;   
+  const degree =8;     
+  const gridRes = 50;   
   const center = new Complex(0,0);  
 
   function integrateSquare(f) {
@@ -39,18 +33,13 @@
     return sum;
   }
 
-  // Bergman Space Setup
+  //Bergman Setup
   function monomial(z, n){ return z.pow(n); }
-  function innerProduct(f,g){
-    return integrateSquare(z => f(z).mul(g(z).conj()));
-  }
+  function innerProduct(f,g){ return integrateSquare(z => f(z).mul(g(z).conj())); }
 
-  // Gram–Schmidt orthonormalization
   function gramSchmidt(){
     let basis = [];
-    for(let n=0; n<degree; n++){
-      basis.push(z => monomial(z,n));
-    }
+    for(let n=0; n<degree; n++) basis.push(z => monomial(z,n));
     let ortho = [];
     for(let i=0; i<degree; i++){
       let f = basis[i];
@@ -67,15 +56,11 @@
     return ortho;
   }
 
-  // Bergman Kernel
   function bergmanKernel(z,w,ortho){
     let sum = new Complex(0,0);
-    for(let p of ortho){
-      sum = sum.add(p(z).mul(p(w).conj()));
-    }
+    for(let p of ortho) sum = sum.add(p(z).mul(p(w).conj()));
     return sum;
   }
-
   function mapDerivative(z, ortho){
     let norm = bergmanKernel(center, center, ortho).re;
     return bergmanKernel(z, center, ortho).scale(1/norm);
@@ -92,25 +77,27 @@
     return sum.mul(dz);
   }
 
-  // Visualization variables
+  //Visualization
   let squarePoints = [];
   let mappedPoints = [];
   let orthoBasis;
-  let uploadedImg = null;
+  let uploadedImg;
 
   function setup(){
     createCanvas(900, 480);
+    pixelDensity(1);
     orthoBasis = gramSchmidt();
 
+    //mapping grid
     for(let i=0; i<gridRes; i++){
       for(let j=0; j<gridRes; j++){
         let x = -1 + 2*(i+0.5)/gridRes;
         let y = -1 + 2*(j+0.5)/gridRes;
-        squarePoints.push(new Complex(x,y));
+        let sq = new Complex(x,y);
+        squarePoints.push(sq);
+        mappedPoints.push(integrateMap(sq, orthoBasis));
       }
     }
-    // Mapped points to the disk
-    mappedPoints = squarePoints.map(p => integrateMap(p, orthoBasis));
 
     noLoop();
   }
@@ -118,40 +105,61 @@
   function draw(){
     background(255);
 
-    // Square domain
+    //Square Domain
     push();
     translate(width*0.25, height/2);
+    rectMode(CENTER);
     noFill();
     stroke(0);
-    rectMode(CENTER);
     rect(0,0,300,300);
-    fill(0);
-    noStroke();
-    for(let p of squarePoints){
-      ellipse(p.re*150, -p.im*150, 3,3);
+
+    if(uploadedImg){
+      imageMode(CENTER);
+      image(uploadedImg, 0, 0, 300, 300);
+    } else {
+      fill(0);
+      noStroke();
+      for(let p of squarePoints){
+        ellipse(p.re*150, -p.im*150, 3, 3);
+      }
     }
     pop();
 
-    // Mapped points
+    //Disk Domain 
     push();
     translate(width*0.75, height/2);
     noFill();
     stroke(0);
-    ellipse(0,0,300,300); 
-    noStroke();
-    fill('red');
-    for(let p of mappedPoints){
-      ellipse(p.re*150, -p.im*150, 3,3);
-    }
-    
+    ellipse(0,0,300,300);
+
     if(uploadedImg){
-      imageMode(CENTER);
-      image(uploadedImg, 0, 0, 300, 300);
+      noStroke();
+      uploadedImg.loadPixels();
+      for(let idx=0; idx<squarePoints.length; idx++){
+        let sq = squarePoints[idx];
+        let mp = mappedPoints[idx];
+
+        //corresponding pixel in uploaded image
+        let imgX = floor(map(sq.re, -1, 1, 0, uploadedImg.width-1));
+        let imgY = floor(map(-sq.im, -1, 1, 0, uploadedImg.height-1));
+        let pixIndex = (imgY * uploadedImg.width + imgX) * 4;
+        let r = uploadedImg.pixels[pixIndex];
+        let g = uploadedImg.pixels[pixIndex+1];
+        let b = uploadedImg.pixels[pixIndex+2];
+        fill(r, g, b);
+        ellipse(mp.re*150, -mp.im*150, 3, 3);
+      }
+    } else {
+      fill('red');
+      noStroke();
+      for(let p of mappedPoints){
+        ellipse(p.re*150, -p.im*150, 3,3);
+      }
     }
     pop();
   }
 
-  // Handle image upload
+  //Image Upload 
   document.getElementById('imgUpload').addEventListener('change', function(e){
     let file = e.target.files[0];
     if(file){
