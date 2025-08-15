@@ -2,15 +2,1167 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Virtual Room</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Room Designer</title>
     <style>
-        body { margin: 0; overflow: hidden; }
-        canvas { display: block; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        canvas {
+            display: block;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            max-width: 300px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .control-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .control-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-item {
+            margin-bottom: 10px;
+        }
+
+        .control-item label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+
+        .control-item select,
+        .control-item input[type="color"],
+        .control-item input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 12px;
+            background: white;
+        }
+
+        .control-item input[type="color"] {
+            height: 35px;
+            cursor: pointer;
+        }
+
+        .control-item input[type="range"] {
+            padding: 0;
+        }
+
+        .furniture-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .furniture-btn {
+            padding: 10px;
+            border: none;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .furniture-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            max-width: 300px;
+            backdrop-filter: blur(10px);
+        }
+
+        .instructions h4 {
+            margin-bottom: 8px;
+            color: #ffd700;
+        }
+
+        .instructions ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .instructions li {
+            margin: 4px 0;
+            padding-left: 12px;
+            position: relative;
+        }
+
+        .instructions li:before {
+            content: "•";
+            color: #667eea;
+            position: absolute;
+            left: 0;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .selected-object {
+            outline: 3px solid #ffd700 !important;
+        }
+
+        .asset-loading {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+                padding: 15px;
+            }
+            
+            .instructions {
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+                max-width: none;
+            }
+        }
     </style>
 </head>
 <body>
-<script type="module" src="./main.js"></script>
+    <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+        <div>Loading 3D Environment...</div>
+    </div>
+
+    <div class="controls" id="controls" style="display: none;">
+        <!-- Environment Controls -->
+        <div class="control-section">
+            <div class="section-title">🏠 Environment</div>
+            
+            <div class="control-item">
+                <label>Wall Color</label>
+                <input type="color" id="wallColor" value="#ffffff">
+            </div>
+            
+            <div class="control-item">
+                <label>Wall Material</label>
+                <select id="wallType">
+                    <option value="Color">Solid Color</option>
+                    <option value="Brick">Brick Texture</option>
+                    <option value="Wood">Wood Texture</option>
+                    <option value="Modern">Modern Texture</option>
+                </select>
+            </div>
+            
+            <div class="control-item">
+                <label>Floor Material</label>
+                <select id="floorType">
+                    <option value="Wood">Wood Floor</option>
+                    <option value="Carpet">Carpet Floor</option>
+                    <option value="Concrete">Concrete Floor</option>
+                </select>
+            </div>
+            
+            <div class="control-item">
+                <label>Lighting</label>
+                <select id="lighting">
+                    <option value="Bright">Bright</option>
+                    <option value="Warm">Warm</option>
+                    <option value="Cool">Cool</option>
+                    <option value="Dim">Dim</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Furniture Controls -->
+        <div class="control-section">
+            <div class="section-title">🪑 Add Furniture</div>
+            <div class="furniture-grid">
+                <button class="furniture-btn" onclick="addFurniture('chair')">🪑 Chair</button>
+                <button class="furniture-btn" onclick="addFurniture('table')">🪧 Table</button>
+                <button class="furniture-btn" onclick="addFurniture('sofa')">🛋️ Sofa</button>
+                <button class="furniture-btn" onclick="addFurniture('bed')">🛏️ Bed</button>
+                <button class="furniture-btn" onclick="addFurniture('bookshelf')">📚 Shelf</button>
+                <button class="furniture-btn" onclick="addFurniture('plant')">🌱 Plant</button>
+            </div>
+        </div>
+
+        <!-- Selected Object Controls -->
+        <div class="control-section" id="objectControls" style="display: none;">
+            <div class="section-title">🎯 Selected Object</div>
+            
+            <div class="control-item">
+                <label>Object Color</label>
+                <input type="color" id="objectColor" value="#8B4513">
+            </div>
+            
+            <div class="control-item">
+                <label>Scale</label>
+                <input type="range" id="objectScale" min="0.5" max="2" step="0.1" value="1">
+            </div>
+            
+            <div class="control-item">
+                <button class="furniture-btn" onclick="deleteSelected()" style="background: #dc3545; width: 100%;">
+                    🗑️ Delete Object
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <h4>Controls:</h4>
+        <ul>
+            <li><strong>Mouse:</strong> Click and drag to move furniture</li>
+            <li><strong>Q/E:</strong> Rotate selected object</li>
+            <li><strong>+/-:</strong> Scale selected object</li>
+            <li><strong>Delete:</strong> Remove selected object</li>
+            <li><strong>Right-click:</strong> Orbit camera view</li>
+        </ul>
+    </div>
+
+    <!-- Load Three.js and GLTFLoader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script>
+        // Global variables
+        let scene, camera, renderer, controls;
+        let furnitureItems = [];
+        let selectedObject = null;
+        let walls = [];
+        let floor, ceiling;
+        let raycaster, mouse;
+        const gridSize = 0.5;
+        let isDragging = false;
+
+        const ASSET_CONFIG = {
+    models: {
+        bed: './assets/models/bed.glb',
+        chair: './assets/models/chair.glb',
+        table: './assets/models/table.glb',
+        sofa: './assets/models/sofa.glb',
+        bookshelf: './assets/models/bookshelf.glb',
+        plant: './assets/models/plant.glb'
+    },
+    textures: {
+        floors: {
+            wood: './assets/textures/wood_floor.jpg',
+            carpet: './assets/textures/carpet_floor.jpg',
+            concrete: './assets/textures/concrete_floor.jpg'
+        },
+        walls: {
+            brick: './assets/textures/brick_wall.jpg',
+            wood: './assets/textures/wood_wall.jpg',
+            modern: './assets/textures/modern_wall.jpg'
+        }
+    }
+};
+
+        // Materials and loaders
+        let materials = {
+            floors: {},
+            walls: {}
+        };
+        let textureLoader, gltfLoader;
+        
+        // Initialize the application
+        init();
+
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 10, 50);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(8, 6, 8);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            document.body.appendChild(renderer.domElement);
+
+            // Initialize loaders
+            textureLoader = new THREE.TextureLoader();
+            gltfLoader = new THREE.GLTFLoader();
+
+            // Controls setup
+            setupControls();
+
+            // Raycaster setup
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Create room
+            createRoom();
+            
+            // Setup lighting
+            setupLighting();
+            
+            // Load assets
+            loadAssets().then(() => {
+                // Event listeners
+                setupEventListeners();
+                
+                // Setup GUI controls
+                setupGUIControls();
+                
+                // Start animation loop
+                animate();
+                
+                // Hide loading screen
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('controls').style.display = 'block';
+            }).catch(error => {
+                console.error('Error loading assets:', error);
+                // Fallback to basic materials if assets fail to load
+                createFallbackMaterials();
+                setupEventListeners();
+                setupGUIControls();
+                animate();
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('controls').style.display = 'block';
+            });
+        }
+
+        function setupControls() {
+            // Basic orbit controls implementation
+            let isRightDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            let spherical = new THREE.Spherical();
+            spherical.setFromVector3(camera.position);
+
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                if (e.button === 2) { // Right click
+                    isRightDragging = true;
+                    previousMousePosition.x = e.clientX;
+                    previousMousePosition.y = e.clientY;
+                }
+            });
+
+            renderer.domElement.addEventListener('mousemove', (e) => {
+                if (isRightDragging) {
+                    const deltaMove = {
+                        x: e.clientX - previousMousePosition.x,
+                        y: e.clientY - previousMousePosition.y
+                    };
+
+                    spherical.theta -= deltaMove.x * 0.01;
+                    spherical.phi += deltaMove.y * 0.01;
+                    spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+
+                    camera.position.setFromSpherical(spherical);
+                    camera.lookAt(0, 2, 0);
+
+                    previousMousePosition.x = e.clientX;
+                    previousMousePosition.y = e.clientY;
+                }
+            });
+
+            renderer.domElement.addEventListener('mouseup', () => {
+                isRightDragging = false;
+            });
+
+            renderer.domElement.addEventListener('wheel', (e) => {
+                spherical.radius += e.deltaY * 0.01;
+                spherical.radius = Math.max(3, Math.min(20, spherical.radius));
+                camera.position.setFromSpherical(spherical);
+                camera.lookAt(0, 2, 0);
+            });
+
+            // Prevent context menu
+            renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+        }
+
+        function createRoom() {
+            const roomSize = 10;
+            const wallHeight = 5;
+
+            // Floor
+            const floorGeometry = new THREE.PlaneGeometry(roomSize, roomSize);
+            const floorMaterial = new THREE.MeshLambertMaterial({ color: 0xD2B48C });
+            floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Walls
+            const wallMaterial = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+            
+            // Back wall
+            const backWall = new THREE.Mesh(
+                new THREE.PlaneGeometry(roomSize, wallHeight),
+                wallMaterial.clone()
+            );
+            backWall.position.set(0, wallHeight/2, -roomSize/2);
+            backWall.receiveShadow = true;
+            scene.add(backWall);
+            walls.push(backWall);
+
+            // Left wall  
+            const leftWall = new THREE.Mesh(
+                new THREE.PlaneGeometry(roomSize, wallHeight),
+                wallMaterial.clone()
+            );
+            leftWall.position.set(-roomSize/2, wallHeight/2, 0);
+            leftWall.rotation.y = Math.PI/2;
+            leftWall.receiveShadow = true;
+            scene.add(leftWall);
+            walls.push(leftWall);
+
+            // Right wall
+            const rightWall = new THREE.Mesh(
+                new THREE.PlaneGeometry(roomSize, wallHeight),
+                wallMaterial.clone()
+            );
+            rightWall.position.set(roomSize/2, wallHeight/2, 0);
+            rightWall.rotation.y = -Math.PI/2;
+            rightWall.receiveShadow = true;
+            scene.add(rightWall);
+            walls.push(rightWall);
+
+            // Ceiling
+            const ceilingMaterial = new THREE.MeshLambertMaterial({ color: 0xF0F0F0 });
+            ceiling = new THREE.Mesh(
+                new THREE.PlaneGeometry(roomSize, roomSize),
+                ceilingMaterial
+            );
+            ceiling.position.y = wallHeight;
+            ceiling.rotation.x = Math.PI/2;
+            scene.add(ceiling);
+        }
+
+        function setupLighting() {
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+
+            // Main directional light
+            const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 0.8);
+            directionalLight.position.set(10, 10, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 50;
+            scene.add(directionalLight);
+
+            // Softer fill light
+            const fillLight = new THREE.DirectionalLight(0xFFFFFF, 0.3);
+            fillLight.position.set(-5, 5, -5);
+            scene.add(fillLight);
+        }
+
+        function loadAssets() {
+            return new Promise((resolve, reject) => {
+                const loadingPromises = [];
+                
+                // Load floor textures
+                Object.keys(ASSET_CONFIG.textures.floors).forEach(key => {
+                    const promise = new Promise((resolveTexture, rejectTexture) => {
+                        textureLoader.load(
+                            ASSET_CONFIG.textures.floors[key],
+                            (texture) => {
+                                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+                                texture.repeat.set(4, 4);
+                                texture.encoding = THREE.sRGBEncoding;
+                                if (!materials.floors) materials.floors = {};
+                                materials.floors[key] = new THREE.MeshLambertMaterial({ map: texture });
+                                resolveTexture();
+                            },
+                            undefined,
+                            (error) => {
+                                console.warn(`Failed to load floor texture: ${key}`, error);
+                                // Create fallback material
+                                if (!materials.floors) materials.floors = {};
+                                materials.floors[key] = createFallbackFloorMaterial(key);
+                                resolveTexture();
+                            }
+                        );
+                    });
+                    loadingPromises.push(promise);
+                });
+
+                // Load wall textures
+                Object.keys(ASSET_CONFIG.textures.walls).forEach(key => {
+                    const promise = new Promise((resolveTexture, rejectTexture) => {
+                        textureLoader.load(
+                            ASSET_CONFIG.textures.walls[key],
+                            (texture) => {
+                                texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+                                texture.repeat.set(2, 2);
+                                texture.encoding = THREE.sRGBEncoding;
+                                if (!materials.walls) materials.walls = {};
+                                materials.walls[key] = new THREE.MeshLambertMaterial({ map: texture });
+                                resolveTexture();
+                            },
+                            undefined,
+                            (error) => {
+                                console.warn(`Failed to load wall texture: ${key}`, error);
+                                // Create fallback material
+                                if (!materials.walls) materials.walls = {};
+                                materials.walls[key] = createFallbackWallMaterial(key);
+                                resolveTexture();
+                            }
+                        );
+                    });
+                    loadingPromises.push(promise);
+                });
+
+                Promise.all(loadingPromises).then(() => {
+                    console.log('All assets loaded successfully');
+                    resolve();
+                }).catch(reject);
+            });
+        }
+
+        function createFallbackFloorMaterial(type) {
+            const colors = {
+                wood: 0xD2B48C,
+                carpet: 0x8B4B8B,
+                concrete: 0xA9A9A9
+            };
+            return new THREE.MeshLambertMaterial({ color: colors[type] || 0xD2B48C });
+        }
+
+        function createFallbackWallMaterial(type) {
+            const colors = {
+                brick: 0x8B4513,
+                wood: 0xDEB887,
+                modern: 0xF5F5F5
+            };
+            return new THREE.MeshLambertMaterial({ color: colors[type] || 0xFFFFFF });
+        }
+
+        function createFallbackMaterials() {
+            // Create basic fallback materials if texture loading fails
+            materials.floors.wood = new THREE.MeshLambertMaterial({ color: 0xD2B48C });
+            materials.floors.carpet = new THREE.MeshLambertMaterial({ color: 0x8B4B8B });
+            materials.floors.concrete = new THREE.MeshLambertMaterial({ color: 0xA9A9A9 });
+            
+            materials.walls.brick = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+            materials.walls.wood = new THREE.MeshLambertMaterial({ color: 0xDEB887 });
+            materials.walls.modern = new THREE.MeshLambertMaterial({ color: 0xF5F5F5 });
+        }
+
+        function addFurniture(type) {
+            const modelPath = ASSET_CONFIG.models[type];
+            
+            if (!modelPath) {
+                console.warn(`No model path configured for furniture type: ${type}`);
+                addFallbackFurniture(type);
+                return;
+            }
+
+            // Show loading indicator
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'asset-loading';
+            loadingDiv.textContent = `Loading ${type}...`;
+            document.body.appendChild(loadingDiv);
+
+            gltfLoader.load(
+                modelPath,
+                (gltf) => {
+                    document.body.removeChild(loadingDiv);
+                    
+                    const furniture = gltf.scene;
+                    
+                    // Normalize scale based on furniture type
+                    normalizeModelScale(furniture, getTargetScale(type));
+                    
+                    // Enable shadows and set up materials
+                    furniture.traverse(child => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                            
+                            // Store original material for color changes
+                            if (child.material) {
+                                child.userData.originalMaterial = child.material.clone();
+                            }
+                        }
+                    });
+                    
+                    // Position randomly in room
+                    furniture.position.x = (Math.random() - 0.5) * 6;
+                    furniture.position.z = (Math.random() - 0.5) * 6;
+                    furniture.position.y = 0;
+                    
+                    // Add metadata
+                    furniture.userData = { 
+                        type: type, 
+                        originalColor: 0x8B4513,
+                        isGLTF: true
+                    };
+                    
+                    scene.add(furniture);
+                    furnitureItems.push(furniture);
+                    
+                    console.log(`${type} loaded successfully`);
+                },
+                (progress) => {
+                    // Optional: Update loading progress
+                    const percentComplete = (progress.loaded / progress.total * 100);
+                    loadingDiv.textContent = `Loading ${type}... ${Math.round(percentComplete)}%`;
+                },
+                (error) => {
+                    if (document.body.contains(loadingDiv)) {
+                        document.body.removeChild(loadingDiv);
+                    }
+                    console.error(`Failed to load ${type} model:`, error);
+                    console.log(`Falling back to basic geometry for ${type}`);
+                    addFallbackFurniture(type);
+                }
+            );
+        }
+
+        function normalizeModelScale(model, targetScale) {
+            const box = new THREE.Box3().setFromObject(model);
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            
+            const maxDimension = Math.max(size.x, size.y, size.z);
+            if (maxDimension === 0) return;
+            
+            const scale = targetScale / maxDimension;
+            model.scale.setScalar(scale);
+            
+            // Center the model at the base
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            model.position.y = -box.min.y * scale;
+        }
+
+        function getTargetScale(type) {
+            const scales = {
+                chair: 1.0,
+                table: 1.2,
+                sofa: 1.5, 
+                bed: 1.8,
+                bookshelf: 2.0,
+                plant: 0.8
+            };
+            return scales[type] || 1.0;
+        }
+
+        function addFallbackFurniture(type) {
+            // Keep the original geometric furniture as fallback
+            let geometry, material, furniture;
+
+            switch (type) {
+                case 'chair':
+                    geometry = new THREE.BoxGeometry(0.5, 0.8, 0.5);
+                    material = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+                    furniture = new THREE.Mesh(geometry, material);
+                    
+                    const backGeometry = new THREE.BoxGeometry(0.5, 0.6, 0.05);
+                    const back = new THREE.Mesh(backGeometry, material);
+                    back.position.set(0, 0.7, -0.225);
+                    furniture.add(back);
+                    break;
+
+                case 'table':
+                    geometry = new THREE.BoxGeometry(1.5, 0.05, 1);
+                    material = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+                    furniture = new THREE.Mesh(geometry, material);
+                    
+                    const legGeometry = new THREE.BoxGeometry(0.05, 0.7, 0.05);
+                    const legPositions = [
+                        [-0.7, -0.375, -0.45],
+                        [0.7, -0.375, -0.45],
+                        [-0.7, -0.375, 0.45],
+                        [0.7, -0.375, 0.45]
+                    ];
+                    legPositions.forEach(pos => {
+                        const leg = new THREE.Mesh(legGeometry, material);
+                        leg.position.set(...pos);
+                        furniture.add(leg);
+                    });
+                    furniture.position.y = 0.375;
+                    break;
+
+                case 'sofa':
+                    geometry = new THREE.BoxGeometry(2, 0.4, 0.8);
+                    material = new THREE.MeshLambertMaterial({ color: 0x4169E1 });
+                    furniture = new THREE.Mesh(geometry, material);
+                    
+                    const sofaBackGeometry = new THREE.BoxGeometry(2, 0.6, 0.1);
+                    const sofaBack = new THREE.Mesh(sofaBackGeometry, material);
+                    sofaBack.position.set(0, 0.5, -0.35);
+                    furniture.add(sofaBack);
+                    
+                    const armGeometry = new THREE.BoxGeometry(0.1, 0.6, 0.8);
+                    const leftArm = new THREE.Mesh(armGeometry, material);
+                    const rightArm = new THREE.Mesh(armGeometry, material);
+                    leftArm.position.set(-0.95, 0.5, 0);
+                    rightArm.position.set(0.95, 0.5, 0);
+                    furniture.add(leftArm, rightArm);
+                    
+                    furniture.position.y = 0.2;
+                    break;
+
+                case 'bed':
+                    geometry = new THREE.BoxGeometry(2, 0.3, 3);
+                    material = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+                    furniture = new THREE.Mesh(geometry, material);
+                    
+                    const headboardGeometry = new THREE.BoxGeometry(2, 1, 0.1);
+                    const headboard = new THREE.Mesh(headboardGeometry, new THREE.MeshLambertMaterial({ color: 0x8B4513 }));
+                    headboard.position.set(0, 0.65, -1.45);
+                    furniture.add(headboard);
+                    
+                    furniture.position.y = 0.15;
+                    break;
+
+                case 'bookshelf':
+                    geometry = new THREE.BoxGeometry(0.3, 2, 1);
+                    material = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+                    furniture = new THREE.Mesh(geometry, material);
+                    
+                    const shelfGeometry = new THREE.BoxGeometry(0.25, 0.02, 0.95);
+                    const shelfMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
+                    for (let i = 0; i < 5; i++) {
+                        const shelf = new THREE.Mesh(shelfGeometry, shelfMaterial);
+                        shelf.position.set(0, -0.8 + i * 0.4, 0);
+                        furniture.add(shelf);
+                    }
+                    
+                    furniture.position.y = 1;
+                    break;
+
+                case 'plant':
+                    const potGeometry = new THREE.CylinderGeometry(0.15, 0.2, 0.3, 8);
+                    const potMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+                    furniture = new THREE.Mesh(potGeometry, potMaterial);
+                    
+                    const plantGeometry = new THREE.SphereGeometry(0.3, 8, 6);
+                    const plantMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+                    const plant = new THREE.Mesh(plantGeometry, plantMaterial);
+                    plant.position.y = 0.4;
+                    plant.scale.y = 1.5;
+                    furniture.add(plant);
+                    
+                    furniture.position.y = 0.15;
+                    break;
+            }
+
+            if (furniture) {
+                furniture.castShadow = true;
+                furniture.receiveShadow = true;
+                furniture.traverse(child => {
+                    if (child.isMesh) {
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                });
+                
+                furniture.userData = { 
+                    type: type, 
+                    originalColor: furniture.material.color.getHex(),
+                    isGLTF: false
+                };
+                
+                furniture.position.x = (Math.random() - 0.5) * 6;
+                furniture.position.z = (Math.random() - 0.5) * 6;
+                
+                scene.add(furniture);
+                furnitureItems.push(furniture);
+            }
+        }
+
+        function setupEventListeners() {
+            // Mouse events for furniture interaction
+            renderer.domElement.addEventListener('mousedown', onMouseDown);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('mouseup', onMouseUp);
+            
+            // Keyboard events
+            window.addEventListener('keydown', onKeyDown);
+            
+            // Window resize
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onMouseDown(event) {
+            if (event.button !== 0) return; // Only left click
+            
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(furnitureItems, true);
+            
+            if (intersects.length > 0) {
+                let object = intersects[0].object;
+                // Find the root furniture object
+                while (object.parent && !furnitureItems.includes(object)) {
+                    object = object.parent;
+                }
+                
+                if (furnitureItems.includes(object)) {
+                    selectObject(object);
+                    isDragging = true;
+                    event.preventDefault();
+                }
+            } else {
+                selectObject(null);
+            }
+        }
+
+        function onMouseMove(event) {
+            if (!selectedObject || !isDragging) return;
+            
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            
+            // Create a plane at y=0 to intersect with
+            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const intersectPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(plane, intersectPoint);
+            
+            if (intersectPoint) {
+                // Snap to grid
+                intersectPoint.x = Math.round(intersectPoint.x / gridSize) * gridSize;
+                intersectPoint.z = Math.round(intersectPoint.z / gridSize) * gridSize;
+                
+                // Keep within room bounds
+                const roomBound = 4;
+                intersectPoint.x = Math.max(-roomBound, Math.min(roomBound, intersectPoint.x));
+                intersectPoint.z = Math.max(-roomBound, Math.min(roomBound, intersectPoint.z));
+                
+                selectedObject.position.x = intersectPoint.x;
+                selectedObject.position.z = intersectPoint.z;
+            }
+        }
+
+        function onMouseUp(event) {
+            isDragging = false;
+        }
+
+        function onKeyDown(event) {
+            if (!selectedObject) return;
+            
+            switch (event.key.toLowerCase()) {
+                case 'q':
+                    selectedObject.rotation.y += Math.PI / 8;
+                    break;
+                case 'e':
+                    selectedObject.rotation.y -= Math.PI / 8;
+                    break;
+                case '=':
+                case '+':
+                    selectedObject.scale.multiplyScalar(1.1);
+                    updateScaleSlider();
+                    break;
+                case '-':
+                    selectedObject.scale.multiplyScalar(0.9);
+                    updateScaleSlider();
+                    break;
+                case 'delete':
+                case 'backspace':
+                    deleteSelected();
+                    break;
+            }
+        }
+
+        function selectObject(object) {
+            // Remove outline from previously selected object
+            if (selectedObject) {
+                selectedObject.traverse(child => {
+                    if (child.isMesh) {
+                        if (child.material && child.material.emissive) {
+                            child.material.emissive.setHex(0x000000);
+                        }
+                    }
+                });
+            }
+            
+            selectedObject = object;
+            
+            if (selectedObject) {
+                // Add outline to selected object
+                selectedObject.traverse(child => {
+                    if (child.isMesh) {
+                        if (child.material && child.material.emissive) {
+                            child.material.emissive.setHex(0x444444);
+                        }
+                    }
+                });
+                
+                // Show object controls
+                document.getElementById('objectControls').style.display = 'block';
+                
+                // Update color picker - try to get color from the main material
+                const colorPicker = document.getElementById('objectColor');
+                let foundColor = false;
+                selectedObject.traverse(child => {
+                    if (child.isMesh && child.material && child.material.color && !foundColor) {
+                        colorPicker.value = '#' + child.material.color.getHexString();
+                        foundColor = true;
+                    }
+                });
+                
+                // Update scale slider
+                updateScaleSlider();
+            } else {
+                // Hide object controls
+                document.getElementById('objectControls').style.display = 'none';
+            }
+        }
+
+        function updateScaleSlider() {
+            if (selectedObject) {
+                document.getElementById('objectScale').value = selectedObject.scale.x;
+            }
+        }
+
+        function deleteSelected() {
+            if (selectedObject) {
+                scene.remove(selectedObject);
+                furnitureItems = furnitureItems.filter(item => item !== selectedObject);
+                selectedObject = null;
+                document.getElementById('objectControls').style.display = 'none';
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function setupGUIControls() {
+            // Wall color control
+            document.getElementById('wallColor').addEventListener('change', (e) => {
+                if (document.getElementById('wallType').value === 'Color') {
+                    walls.forEach(wall => {
+                        wall.material.color.setStyle(e.target.value);
+                    });
+                }
+            });
+
+            // Wall type control
+            document.getElementById('wallType').addEventListener('change', (e) => {
+                const value = e.target.value;
+                walls.forEach(wall => {
+                    if (value === 'Color') {
+                        wall.material.map = null;
+                        wall.material.color.setStyle(document.getElementById('wallColor').value);
+                    } else {
+                        const materialName = value.toLowerCase();
+                        if (materials.walls && materials.walls[materialName]) {
+                            wall.material = materials.walls[materialName].clone();
+                        }
+                    }
+                    wall.material.needsUpdate = true;
+                });
+            });
+
+            // Floor type control
+            document.getElementById('floorType').addEventListener('change', (e) => {
+                const value = e.target.value.toLowerCase();
+                
+                if (materials.floors && materials.floors[value]) {
+                    floor.material = materials.floors[value].clone();
+                } else {
+                    // Fallback to solid color
+                    const colors = {
+                        'wood': 0xD2B48C,
+                        'carpet': 0x8B4B8B,
+                        'concrete': 0xA9A9A9
+                    };
+                    floor.material = new THREE.MeshLambertMaterial({ 
+                        color: colors[value] || 0xD2B48C 
+                    });
+                }
+                floor.material.needsUpdate = true;
+            });
+
+            // Lighting control
+            document.getElementById('lighting').addEventListener('change', (e) => {
+                const value = e.target.value;
+                const lights = scene.children.filter(child => child.isDirectionalLight || child.isAmbientLight);
+                
+                switch (value) {
+                    case 'Bright':
+                        lights.forEach(light => {
+                            if (light.isAmbientLight) light.intensity = 0.5;
+                            if (light.isDirectionalLight) light.intensity = 1.0;
+                            light.color.setHex(0xFFFFFF);
+                        });
+                        scene.background = new THREE.Color(0x87CEEB);
+                        break;
+                    case 'Warm':
+                        lights.forEach(light => {
+                            if (light.isAmbientLight) {
+                                light.intensity = 0.4;
+                                light.color.setHex(0xFFE4B5);
+                            }
+                            if (light.isDirectionalLight) {
+                                light.intensity = 0.8;
+                                light.color.setHex(0xFFE4B5);
+                            }
+                        });
+                        scene.background = new THREE.Color(0xFFE4B5);
+                        break;
+                    case 'Cool':
+                        lights.forEach(light => {
+                            if (light.isAmbientLight) {
+                                light.intensity = 0.4;
+                                light.color.setHex(0xB0E0E6);
+                            }
+                            if (light.isDirectionalLight) {
+                                light.intensity = 0.8;
+                                light.color.setHex(0xB0E0E6);
+                            }
+                        });
+                        scene.background = new THREE.Color(0xB0E0E6);
+                        break;
+                    case 'Dim':
+                        lights.forEach(light => {
+                            if (light.isAmbientLight) light.intensity = 0.2;
+                            if (light.isDirectionalLight) light.intensity = 0.4;
+                            light.color.setHex(0xFFFFFF);
+                        });
+                        scene.background = new THREE.Color(0x404040);
+                        break;
+                }
+            });
+
+            // Object color control
+            document.getElementById('objectColor').addEventListener('change', (e) => {
+                if (selectedObject) {
+                    const color = new THREE.Color(e.target.value);
+                    selectedObject.traverse(child => {
+                        if (child.isMesh && child.material && child.material.color) {
+                            child.material.color.copy(color);
+                        }
+                    });
+                }
+            });
+
+            // Object scale control
+            document.getElementById('objectScale').addEventListener('input', (e) => {
+                if (selectedObject) {
+                    const scale = parseFloat(e.target.value);
+                    selectedObject.scale.setScalar(scale);
+                }
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Add subtle floating animation to plants
+            furnitureItems.forEach((item, index) => {
+                if (item.userData.type === 'plant') {
+                    const originalY = item.userData.originalY || item.position.y;
+                    if (!item.userData.originalY) item.userData.originalY = originalY;
+                    item.position.y = originalY + Math.sin(Date.now() * 0.001 + index) * 0.02;
+                }
+            });
+            
+            renderer.render(scene, camera);
+        }
+
+        // Global functions for buttons
+        window.addFurniture = addFurniture;
+        window.deleteSelected = deleteSelected;
+    </script>
 </body>
 </html>
-
-
