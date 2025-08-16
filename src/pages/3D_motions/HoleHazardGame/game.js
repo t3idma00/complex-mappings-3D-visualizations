@@ -44,7 +44,7 @@ const tiltSpeed = 0.015; // Slower tilt response
 
 // Create game elements
 function createGameElements() {
-    // Create a group for the board and holes so we can tilt them together
+    // Create a group for the board and holes
     boardGroup = new THREE.Group();
     scene.add(boardGroup);
 
@@ -90,7 +90,7 @@ function createGameElements() {
     startPoint.rotation.x = Math.PI / 2;
     boardGroup.add(startPoint);
 
-    // Create goal hole (the one you WANT to fall into)
+    // Create goal hole 
     const goalHoleMaterial = new THREE.MeshStandardMaterial({ color: 0xFF0000 });
     endHole = new THREE.Mesh(holeGeometry, goalHoleMaterial);
     endHole.position.set(8, 0, 8);
